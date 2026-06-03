@@ -29,6 +29,12 @@ frontend/out/
 .DS_Store
 Thumbs.db
 
+# Test generated
+backend/skills/api_test_skill.py
+
+# TypeScript
+*.tsbuildinfo
+
 # Logs
 *.log
 logs/
