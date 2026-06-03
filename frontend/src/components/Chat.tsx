@@ -185,12 +185,14 @@ export function Chat({ onVisualization, onToggleSettings }: ChatProps) {
 
     // 用清洗后的 Markdown 覆盖原始用户消息
     if (userMsgIdRef.current) {
-      setMessages(prev => prev.map(msg =>
-        msg.id === userMsgIdRef.current
-          ? { ...msg, content: editedMarkdown }
-          : msg
-      ));
-      userMsgIdRef.current = null;
+      if (userMsgIdRef.current) {
+        const targetId = userMsgIdRef.current;
+        setMessages(prev => prev.map(msg =>
+          msg.id === targetId
+            ? { ...msg, content: editedMarkdown }
+            : msg
+        ));
+      }
     }
 
     try {
@@ -260,83 +262,109 @@ export function Chat({ onVisualization, onToggleSettings }: ChatProps) {
     <div className="flex flex-col h-full">
       {/* 消息列表 */}
       <div className="flex-1 overflow-y-auto px-4 py-4 space-y-4">
-        {/* InputEditor（输入预处理阶段） */}
-        {inputStage !== 'idle' && processedMarkdown && (
-          <div className="max-w-[85%]">
-            <InputEditor
-              originalText={originalText}
-              processedMarkdown={processedMarkdown}
-              stage={inputStage}
-              onConfirm={handleConfirmInput}
-              onCancel={handleCancelInput}
-            />
-          </div>
-        )}
+        {/* 消息气泡 + InputEditor + 提示分组 */}
+        {messages.map((msg, idx) => {
+          const isLastUserMsg = msg.role === 'user' && msg.id === userMsgIdRef.current;
+          const prevIsUser = idx > 0 && messages[idx - 1].role === 'user';
+          const isHintAfterUser = msg.role === 'assistant' && msg.isHint && prevIsUser && !msg.content.startsWith('❌');
 
-        {/* 消息气泡 */}
-        {messages.map(msg => (
-          <div
-            key={msg.id}
-            className={`group flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'} animate-in fade-in duration-200`}
-          >
-            <div
-              className={`relative max-w-[85%] rounded-2xl px-4 py-3 ${
-                msg.role === 'user'
-                  ? 'bg-blue-500 text-white rounded-br-sm'
-                  : 'bg-white border border-gray-200 shadow-sm rounded-bl-sm'
-              }`}
-            >
-              <div className={`text-sm leading-relaxed ${msg.role === 'user' ? 'text-white' : 'text-gray-800'} markdown-content`}>
-                <ReactMarkdown
-                  remarkPlugins={[remarkGfm, remarkMath]}
-                  rehypePlugins={[rehypeKatex]}
-                >
-                  {msg.content}
-                </ReactMarkdown>
-
-                {/* 代码重试信息 (仅 assistant) */}
-                {msg.role === 'assistant' && msg.suggestModelUpgrade && (
-                  <div className="mt-2 p-2 bg-orange-50 border border-orange-200 rounded-lg text-xs text-orange-700">
-                    ⚠️ 当前模型多次尝试仍无法生成有效可视化代码。
-                    <br />建议切换到更强的模型（如 GPT-4o / Claude Opus）。
+          // ── 提示消息：紧凑模式，跟随用户消息 ──
+          if (isHintAfterUser) {
+            return (
+              <div key={msg.id} className="flex justify-start -mt-2 mb-2">
+                <div className="ml-8 pl-3 border-l-2 border-gray-200">
+                  <div className="text-xs leading-relaxed text-gray-600 bg-gray-100 rounded-lg px-3 py-2 markdown-content">
+                    <ReactMarkdown
+                      remarkPlugins={[remarkGfm, remarkMath]}
+                      rehypePlugins={[rehypeKatex]}
+                    >
+                      {msg.content}
+                    </ReactMarkdown>
                   </div>
-                )}
-                {msg.role === 'assistant' && msg.vizCodeAttempts && msg.vizCodeAttempts > 0 && !msg.suggestModelUpgrade && (
-                  <div className="mt-1 text-[10px] text-gray-400">
-                    可视化代码重试 {msg.vizCodeAttempts} 次后成功
-                  </div>
-                )}
+                </div>
               </div>
+            );
+          }
 
-              {/* 查看可视化按钮 (仅 assistant) */}
-              {msg.role === 'assistant' && msg.visualizationData && (
-                <div className="mt-2 pt-2 border-t border-gray-100">
-                  <button
-                    onClick={() => onVisualization(msg.visualizationData!)}
-                    className="flex items-center gap-1 text-xs text-indigo-600 hover:text-indigo-800 font-medium"
+          return (
+            <div key={msg.id}>
+              {/* 消息气泡 */}
+              <div className={`group flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'} animate-in fade-in duration-200`}>
+                <div
+                    className={`relative max-w-[85%] rounded-2xl px-4 py-3 ${
+                      msg.role === 'user'
+                        ? 'bg-blue-500 text-white rounded-br-sm'
+                        : 'bg-white border border-gray-200 shadow-sm rounded-bl-sm'
+                    }`}
                   >
-                    <Lightbulb size={14} />
-                    查看可视化
-                    <ChevronRight size={14} />
-                  </button>
+                    <div className={`text-sm leading-relaxed ${msg.role === 'user' ? 'text-white' : 'text-gray-800'} markdown-content`}>
+                      <ReactMarkdown
+                        remarkPlugins={[remarkGfm, remarkMath]}
+                        rehypePlugins={[rehypeKatex]}
+                      >
+                        {msg.content}
+                      </ReactMarkdown>
+
+                      {/* 代码重试信息 (仅 assistant) */}
+                      {msg.role === 'assistant' && msg.suggestModelUpgrade && (
+                        <div className="mt-2 p-2 bg-orange-50 border border-orange-200 rounded-lg text-xs text-orange-700">
+                          ⚠️ 当前模型多次尝试仍无法生成有效可视化代码。
+                          <br />建议切换到更强的模型（如 GPT-4o / Claude Opus）。
+                        </div>
+                      )}
+                      {msg.role === 'assistant' && msg.vizCodeAttempts && msg.vizCodeAttempts > 0 && !msg.suggestModelUpgrade && (
+                        <div className="mt-1 text-[10px] text-gray-400">
+                          可视化代码重试 {msg.vizCodeAttempts} 次后成功
+                        </div>
+                      )}
+                    </div>
+
+                    {/* 查看可视化按钮 (仅 assistant) */}
+                    {msg.role === 'assistant' && msg.visualizationData && (
+                      <div className="mt-2 pt-2 border-t border-gray-100">
+                        <button
+                          onClick={() => onVisualization(msg.visualizationData!)}
+                          className="flex items-center gap-1 text-xs text-indigo-600 hover:text-indigo-800 font-medium"
+                        >
+                          <Lightbulb size={14} />
+                          查看可视化
+                          <ChevronRight size={14} />
+                        </button>
+                      </div>
+                    )}
+
+                    {/* 复制按钮 */}
+                    <button
+                      onClick={() => navigator.clipboard.writeText(msg.content)}
+                      className={`absolute -top-2 -right-2 p-1.5 rounded-full opacity-0 group-hover:opacity-100 transition-opacity shadow-sm ${
+                        msg.role === 'user'
+                          ? 'bg-blue-600 text-white hover:bg-blue-700'
+                          : 'bg-gray-200 text-gray-600 hover:bg-gray-300'
+                      }`}
+                      title="复制文本"
+                    >
+                      <Copy size={12} />
+                    </button>
+                  </div>
+                </div>
+
+              {/* InputEditor：紧跟在触发清洗的用户消息下方 */}
+              {isLastUserMsg && inputStage !== 'idle' && processedMarkdown && (
+                <div className="flex justify-end mt-1 mb-2">
+                  <div className="max-w-[85%]">
+                    <InputEditor
+                      originalText={originalText}
+                      processedMarkdown={processedMarkdown}
+                      stage={inputStage}
+                      onConfirm={handleConfirmInput}
+                      onCancel={handleCancelInput}
+                    />
+                  </div>
                 </div>
               )}
-
-              {/* 复制按钮 */}
-              <button
-                onClick={() => navigator.clipboard.writeText(msg.content)}
-                className={`absolute -top-2 -right-2 p-1.5 rounded-full opacity-0 group-hover:opacity-100 transition-opacity shadow-sm ${
-                  msg.role === 'user'
-                    ? 'bg-blue-600 text-white hover:bg-blue-700'
-                    : 'bg-gray-200 text-gray-600 hover:bg-gray-300'
-                }`}
-                title="复制文本"
-              >
-                <Copy size={12} />
-              </button>
             </div>
-          </div>
-        ))}
+          );
+        })}
 
         {/* Loading */}
         {loading && inputStage === 'idle' && (

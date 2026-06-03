@@ -36,7 +36,7 @@ export function InputEditor({
 }: InputEditorProps) {
   const [edited, setEdited] = useState(processedMarkdown);
   const [isEditing, setIsEditing] = useState(false);
-  const [enableViz, setEnableViz] = useState(true);
+  const [enableViz, setEnableViz] = useState(false);
 
   // 当 processedMarkdown 变化时同步
   if (processedMarkdown !== edited && !isEditing && stage === 'editing') {
@@ -50,12 +50,12 @@ export function InputEditor({
   // 处理中
   if (stage === 'processing') {
     return (
-      <div className="bg-indigo-50 border border-indigo-100 rounded-xl p-4 mb-3">
+      <div className="bg-indigo-50 border border-indigo-100 rounded-lg p-3 mb-2">
         <div className="flex items-center gap-2 text-indigo-600">
-          <Loader2 size={18} className="animate-spin" />
-          <span className="text-sm font-medium">正在处理输入...</span>
+          <Loader2 size={14} className="animate-spin" />
+          <span className="text-xs font-medium">正在处理输入...</span>
         </div>
-        <p className="text-xs text-indigo-400 mt-1 ml-7">
+        <p className="text-[10px] text-indigo-400 mt-1 ml-6">
           将非规范文字转换为规范 Markdown 格式
         </p>
       </div>
@@ -65,25 +65,25 @@ export function InputEditor({
   // 编辑模式
   if (stage === 'editing') {
     return (
-      <div className="bg-amber-50 border border-amber-200 rounded-xl mb-3 overflow-hidden">
+      <div className="bg-amber-50 border border-amber-200 rounded-lg mb-2 overflow-hidden">
         {/* 头部 */}
-        <div className="flex items-center justify-between px-4 py-2.5 bg-amber-100/50">
-          <div className="flex items-center gap-2">
-            <Edit3 size={16} className="text-amber-600" />
-            <span className="text-sm font-medium text-amber-800">输入已处理 — 请确认/编辑</span>
-          </div>
+        <div className="flex items-center justify-between px-3 py-1.5 bg-amber-100/50">
           <div className="flex items-center gap-1.5">
+            <Edit3 size={13} className="text-amber-600" />
+            <span className="text-xs font-medium text-amber-800">输入已处理 — 请确认</span>
+          </div>
+          <div className="flex items-center gap-1">
             <button
               onClick={() => navigator.clipboard.writeText(edited || processedMarkdown)}
-              className="flex items-center gap-1 text-xs px-2 py-1 rounded-md bg-white/80 text-amber-600 hover:bg-amber-100 transition-colors"
+              className="flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded-md bg-white/80 text-amber-600 hover:bg-amber-100 transition-colors"
               title="复制处理后的文本"
             >
-              <Copy size={12} />
+              <Copy size={10} />
               复制
             </button>
             <button
               onClick={() => setIsEditing(!isEditing)}
-              className={`text-xs px-2 py-1 rounded-md transition-colors ${
+              className={`text-[10px] px-1.5 py-0.5 rounded-md transition-colors ${
                 isEditing
                   ? 'bg-amber-200 text-amber-800'
                   : 'bg-white/80 text-amber-600 hover:bg-amber-100'
@@ -92,60 +92,60 @@ export function InputEditor({
               {isEditing ? '预览' : '编辑'}
             </button>
           </div>
-        </div>{/* 关闭 flex row */}
+        </div>
 
         {/* 可视化开关 */}
-        <div className="px-4 py-1.5 bg-white/30 border-b border-amber-100">
+        <div className="px-3 py-1 bg-white/30 border-b border-amber-100">
           <label className="flex items-center gap-1.5 cursor-pointer select-none">
             <input
               type="checkbox"
               checked={enableViz}
               onChange={e => setEnableViz(e.target.checked)}
-              className="w-3.5 h-3.5 rounded border-amber-300 text-amber-600 focus:ring-amber-400"
+              className="w-3 h-3 rounded border-amber-300 text-amber-600 focus:ring-amber-400"
             />
-            <span className="text-xs text-gray-600 flex items-center gap-1">
-              {enableViz ? <Eye size={12} /> : <EyeOff size={12} />}
+            <span className="text-[11px] text-gray-600 flex items-center gap-1">
+              {enableViz ? <Eye size={10} /> : <EyeOff size={10} />}
               需要可视化图形
             </span>
           </label>
         </div>
 
         {/* 原文 */}
-        <div className="px-4 py-2 bg-white/50 border-b border-amber-100">
-          <span className="text-[10px] font-medium text-gray-400 uppercase">原文</span>
-          <p className="text-xs text-gray-500 mt-0.5 line-clamp-2">{originalText}</p>
+        <div className="px-3 py-1 bg-white/50 border-b border-amber-100">
+          <span className="text-[9px] font-medium text-gray-400 uppercase">原文</span>
+          <p className="text-[11px] text-gray-500 mt-0.5 line-clamp-1">{originalText}</p>
         </div>
 
         {/* 编辑/预览区域 */}
-        <div className="px-4 py-3">
+        <div className="px-3 py-2">
           {isEditing ? (
             <textarea
               value={edited}
               onChange={e => setEdited(e.target.value)}
-              className="w-full h-28 px-3 py-2 text-sm border border-amber-300 rounded-lg focus:ring-2 focus:ring-amber-400 outline-none resize-y font-mono bg-white"
+              className="w-full h-24 px-2 py-1.5 text-xs border border-amber-300 rounded-lg focus:ring-2 focus:ring-amber-400 outline-none resize-y font-mono bg-white"
               autoFocus
             />
           ) : (
-            <div className="bg-white rounded-lg p-3 border border-amber-100 text-sm text-gray-700 whitespace-pre-wrap font-mono">
+            <div className="bg-white rounded-lg p-2 border border-amber-100 text-xs text-gray-700 whitespace-pre-wrap font-mono leading-relaxed">
               {edited || processedMarkdown}
             </div>
           )}
         </div>
 
         {/* 操作按钮 */}
-        <div className="flex items-center justify-end gap-2 px-4 py-2.5 bg-amber-100/30 border-t border-amber-100">
+        <div className="flex items-center justify-end gap-1.5 px-3 py-1.5 bg-amber-100/30 border-t border-amber-100">
           <button
             onClick={onCancel}
-            className="flex items-center gap-1 px-3 py-1.5 text-xs text-gray-600 hover:text-gray-800 rounded-lg hover:bg-white transition-colors"
+            className="flex items-center gap-1 px-2 py-1 text-[10px] text-gray-600 hover:text-gray-800 rounded-lg hover:bg-white transition-colors"
           >
-            <X size={14} />
+            <X size={12} />
             取消
           </button>
           <button
             onClick={handleConfirm}
-            className="flex items-center gap-1 px-4 py-1.5 text-xs font-medium text-white bg-amber-600 hover:bg-amber-700 rounded-lg transition-colors"
+            className="flex items-center gap-1 px-3 py-1 text-[10px] font-medium text-white bg-amber-600 hover:bg-amber-700 rounded-lg transition-colors"
           >
-            <Check size={14} />
+            <Check size={12} />
             确认并解答
           </button>
         </div>
@@ -156,10 +156,10 @@ export function InputEditor({
   // 求解中
   if (stage === 'solving') {
     return (
-      <div className="bg-indigo-50 border border-indigo-100 rounded-xl p-4 mb-3">
-        <div className="flex items-center gap-2 text-indigo-600">
-          <Loader2 size={18} className="animate-spin" />
-          <span className="text-sm font-medium">正在解答...</span>
+      <div className="bg-indigo-50 border border-indigo-100 rounded-lg p-2.5 mb-2">
+        <div className="flex items-center gap-1.5 text-indigo-600">
+          <Loader2 size={14} className="animate-spin" />
+          <span className="text-xs font-medium">正在解答...</span>
         </div>
       </div>
     );
@@ -168,27 +168,27 @@ export function InputEditor({
   // 已确认（解答完成后保留在聊天中）
   if (stage === 'confirmed') {
     return (
-      <div className="bg-green-50 border border-green-200 rounded-xl mb-3 overflow-hidden">
-        <div className="flex items-center justify-between px-4 py-2.5 bg-green-100/50">
-          <div className="flex items-center gap-2">
-            <Check size={16} className="text-green-600" />
-            <span className="text-sm font-medium text-green-800">已确认 — 以下内容已发送给 AI</span>
+      <div className="bg-green-50 border border-green-200 rounded-lg mb-2 overflow-hidden">
+        <div className="flex items-center justify-between px-3 py-1.5 bg-green-100/50">
+          <div className="flex items-center gap-1.5">
+            <Check size={13} className="text-green-600" />
+            <span className="text-xs font-medium text-green-800">已确认 — 以下内容已发送给 AI</span>
           </div>
           <button
             onClick={() => navigator.clipboard.writeText(processedMarkdown)}
-            className="flex items-center gap-1 text-xs px-2 py-1 rounded-md bg-white/80 text-green-600 hover:bg-green-100 transition-colors"
+            className="flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded-md bg-white/80 text-green-600 hover:bg-green-100 transition-colors"
             title="复制处理后的文本"
           >
-            <Copy size={12} />
+            <Copy size={10} />
             复制
           </button>
         </div>
-        <div className="px-4 py-2 bg-white/50 border-b border-green-100">
-          <span className="text-[10px] font-medium text-gray-400 uppercase">原文</span>
-          <p className="text-xs text-gray-500 mt-0.5 line-clamp-2">{originalText}</p>
+        <div className="px-3 py-1 bg-white/50 border-b border-green-100">
+          <span className="text-[9px] font-medium text-gray-400 uppercase">原文</span>
+          <p className="text-[11px] text-gray-500 mt-0.5 line-clamp-1">{originalText}</p>
         </div>
-        <div className="px-4 py-3">
-          <div className="bg-white rounded-lg p-3 border border-green-100 text-sm text-gray-700 whitespace-pre-wrap font-mono">
+        <div className="px-3 py-2">
+          <div className="bg-white rounded-lg p-2 border border-green-100 text-xs text-gray-700 whitespace-pre-wrap font-mono leading-relaxed">
             {processedMarkdown}
           </div>
         </div>
