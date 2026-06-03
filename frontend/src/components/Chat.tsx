@@ -176,7 +176,7 @@ export function Chat({ onVisualization, onToggleSettings }: ChatProps) {
   }, [input, loading, conversationId, onVisualization, getModelsConfig, inputStage]);
 
   // 用户确认输入编辑
-  const handleConfirmInput = useCallback(async (editedMarkdown: string) => {
+  const handleConfirmInput = useCallback(async (editedMarkdown: string, enableViz: boolean = true) => {
     if (!originalText) return;
 
     setLoading(true);
@@ -200,6 +200,7 @@ export function Chat({ onVisualization, onToggleSettings }: ChatProps) {
         show_answer: true,
         models_config: modelsConfig,
         confirmed_markdown: editedMarkdown,
+        enable_viz: enableViz,
       }, modelsConfig);
 
       if (!conversationId && res.conversation_id) {

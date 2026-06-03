@@ -89,6 +89,7 @@ export interface ChatRequest {
   show_answer?: boolean;
   models_config?: ModelConfigMap;
   confirmed_markdown?: string;
+  enable_viz?: boolean;
 }
 
 export interface ChatResponse {

@@ -20,6 +20,7 @@ class ChatRequest(BaseModel):
     # ── 多模型支持 ─────────────────────────────────────────────
     models_config: Optional[dict[str, Any]] = None  # X-Model-Config header 解码后的 JSON
     confirmed_markdown: Optional[str] = None        # 用户确认/编辑后的规范 Markdown
+    enable_viz: bool = True                         # 是否生成可视化（代数题可关闭）
 
 
 class ChatResponse(BaseModel):
