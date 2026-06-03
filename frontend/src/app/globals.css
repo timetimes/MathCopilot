@@ -1,0 +1,44 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --foreground: #1a1a2e;
+  --background: #f0f2f5;
+  --chat-bg: #ffffff;
+  --user-msg: #3b82f6;
+  --assistant-msg: #f3f4f6;
+  --accent: #6366f1;
+}
+
+body {
+  color: var(--foreground);
+  background: var(--background);
+}
+
+* {
+  scrollbar-width: thin;
+  scrollbar-color: #c0c0c0 transparent;
+}
+
+.markdown-content h1,
+.markdown-content h2,
+.markdown-content h3 {
+  @apply font-bold mt-3 mb-1;
+}
+.markdown-content h1 { @apply text-lg; }
+.markdown-content h2 { @apply text-base; }
+.markdown-content h3 { @apply text-sm; }
+.markdown-content ul { @apply list-disc pl-5 my-1; }
+.markdown-content ol { @apply list-decimal pl-5 my-1; }
+.markdown-content p { @apply my-1; }
+.markdown-content code { @apply bg-gray-100 text-red-600 px-1 rounded text-sm; }
+.markdown-content pre { @apply bg-gray-900 text-gray-100 p-3 rounded-lg overflow-x-auto my-2 text-sm; }
+.markdown-content table { @apply border-collapse w-full my-2; }
+.markdown-content th { @apply border border-gray-300 bg-gray-100 px-2 py-1 text-left font-semibold; }
+.markdown-content td { @apply border border-gray-300 px-2 py-1; }
+
+.JXGbox {
+  border-radius: 12px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+}
