@@ -142,10 +142,45 @@ export function Chat({ onVisualization, onToggleSettings }: ChatProps) {
         // 解析 Input 角色的模型配置
         let inputConfig = modelsConfig?.input || modelsConfig?.default || null;
         if (!inputConfig) {
-          // 未配置：跳过清洗，直接用原文
-          setOriginalText(currentInput);
-          setProcessedMarkdown(currentInput);
-          setInputStage('editing');
+          // 未配置清洗模型：跳过清洗，直接求解
+          setInputStage('solving');
+          try {
+            const res = await api.solve({
+              message: currentInput,
+              conversation_id: conversationId,
+              show_answer: true,
+              models_config: modelsConfig,
+              enable_viz: true,
+            }, modelsConfig);
+
+            if (!conversationId && res.conversation_id) {
+              setConversationId(res.conversation_id);
+            }
+
+            const assistantMsg: ChatMessage = {
+              id: (Date.now() + 1).toString(),
+              role: 'assistant',
+              content: res.reply,
+              isHint: res.is_hint_only,
+              visualizationData: res.visualization_data || null,
+              vizCodeAttempts: res.viz_code_attempts,
+              vizCodeError: res.viz_code_error,
+              suggestModelUpgrade: res.suggest_model_upgrade,
+            };
+            setMessages(prev => [...prev, assistantMsg]);
+
+            if (res.visualization_data) {
+              onVisualization(res.visualization_data as VisualizationData);
+            }
+          } catch (err) {
+            setMessages(prev => [...prev, {
+              id: (Date.now() + 1).toString(),
+              role: 'assistant',
+              content: `❌ 请求失败：${err instanceof Error ? err.message : '网络错误'}`,
+              isHint: true,
+            }]);
+          }
+          setInputStage('idle');
           setLoading(false);
           return;
         }
@@ -312,7 +347,7 @@ export function Chat({ onVisualization, onToggleSettings }: ChatProps) {
                           <br />建议切换到更强的模型（如 GPT-4o / Claude Opus）。
                         </div>
                       )}
-                      {msg.role === 'assistant' && msg.vizCodeAttempts && msg.vizCodeAttempts > 0 && !msg.suggestModelUpgrade && (
+                      {msg.role === 'assistant' && msg.vizCodeAttempts != null && msg.vizCodeAttempts > 0 && !msg.suggestModelUpgrade && (
                         <div className="mt-1 text-[10px] text-gray-400">
                           可视化代码重试 {msg.vizCodeAttempts} 次后成功
                         </div>
