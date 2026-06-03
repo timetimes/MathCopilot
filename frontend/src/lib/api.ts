@@ -8,7 +8,7 @@ import type {
   ModelConfigMap, AppSettings,
 } from '@/types';
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+const API_BASE = process.env.NEXT_PUBLIC_API_URL || '';
 const SETTINGS_KEY = 'mathcopilot_settings';
 
 // ── 本地存储 ───────────────────────────────────────────────────

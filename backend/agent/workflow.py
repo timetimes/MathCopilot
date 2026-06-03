@@ -40,9 +40,11 @@ def _build_llm(model_cfg: ModelConfig | None = None, temperature: float = 0.3):
     返回 None 时触发 fallback 逻辑。
     """
     if model_cfg is None:
-        # 使用全局配置
+        logger.info("_build_llm: model_cfg 为 None，使用全局配置")
         return _build_llm_from_globals(temperature)
 
+    logger.info(f"_build_llm: provider={model_cfg.provider} model={model_cfg.model_name} "
+                f"base_url={model_cfg.base_url} key={'***' + model_cfg.api_key[-4:] if len(model_cfg.api_key) > 4 else '(empty)'}")
     return model_cfg.build_llm(temperature=temperature)
 
 
@@ -499,7 +501,9 @@ def solve(
                     }
 
         except Exception as e:
-            logger.exception("Solution 生成失败")
+            logger.error(f"Solution LLM invoke 失败: {e}")
+            import traceback
+            logger.error(traceback.format_exc())
             return _fallback_solve(user_message, error=str(e))
 
     # ── 3. 调用已有 Skill ─────────────────────────────────────
@@ -623,9 +627,11 @@ def _fallback_solve(user_message: str, error: str = "") -> dict[str, Any]:
                 "visualization_data": {"type": "function_plot", "expression": expr, "points": points, "x_range": [-10, 10]},
                 "viz_code_attempts": 0, "viz_code_error": None, "suggest_model_upgrade": False}
 
-    # 通用 fallback
+    # 通用 fallback（带上具体错误信息方便诊断）
+    err_detail = f"\n\n> 详细信息: {error}" if error else ""
+    logger.warning(f"Fallback solve 被触发，错误: {error or '无 LLM 可用'}")
     return {
-        "reply": f"## 解答\n\n无法连接到 LLM 服务。\n\n> 请配置 API Key 或在 `.env` 中设置 `LLM_PROVIDER=mock`。",
+        "reply": f"## 解答\n\n无法连接到 LLM 服务，已使用内置逻辑尝试解答。\n\n> 请设置有效的 API Key 以启用 AI 解题能力。{err_detail}",
         "skill_used": None, "visualization_data": None,
         "viz_code_attempts": 0, "viz_code_error": None, "suggest_model_upgrade": False,
     }

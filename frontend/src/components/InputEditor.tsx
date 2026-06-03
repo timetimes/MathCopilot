@@ -11,7 +11,7 @@
  */
 
 import { useState } from 'react';
-import { Check, X, Edit3, Loader2 } from 'lucide-react';
+import { Check, X, Edit3, Loader2, Copy } from 'lucide-react';
 import type { InputStage } from '@/types';
 
 interface InputEditorProps {
@@ -71,16 +71,26 @@ export function InputEditor({
             <Edit3 size={16} className="text-amber-600" />
             <span className="text-sm font-medium text-amber-800">输入已处理 — 请确认/编辑</span>
           </div>
-          <button
-            onClick={() => setIsEditing(!isEditing)}
-            className={`text-xs px-2 py-1 rounded-md transition-colors ${
-              isEditing
-                ? 'bg-amber-200 text-amber-800'
-                : 'bg-white/80 text-amber-600 hover:bg-amber-100'
-            }`}
-          >
-            {isEditing ? '预览' : '编辑'}
-          </button>
+          <div className="flex items-center gap-1.5">
+            <button
+              onClick={() => navigator.clipboard.writeText(edited || processedMarkdown)}
+              className="flex items-center gap-1 text-xs px-2 py-1 rounded-md bg-white/80 text-amber-600 hover:bg-amber-100 transition-colors"
+              title="复制处理后的文本"
+            >
+              <Copy size={12} />
+              复制
+            </button>
+            <button
+              onClick={() => setIsEditing(!isEditing)}
+              className={`text-xs px-2 py-1 rounded-md transition-colors ${
+                isEditing
+                  ? 'bg-amber-200 text-amber-800'
+                  : 'bg-white/80 text-amber-600 hover:bg-amber-100'
+              }`}
+            >
+              {isEditing ? '预览' : '编辑'}
+            </button>
+          </div>
         </div>
 
         {/* 原文 */}
@@ -133,6 +143,37 @@ export function InputEditor({
         <div className="flex items-center gap-2 text-indigo-600">
           <Loader2 size={18} className="animate-spin" />
           <span className="text-sm font-medium">正在解答...</span>
+        </div>
+      </div>
+    );
+  }
+
+  // 已确认（解答完成后保留在聊天中）
+  if (stage === 'confirmed') {
+    return (
+      <div className="bg-green-50 border border-green-200 rounded-xl mb-3 overflow-hidden">
+        <div className="flex items-center justify-between px-4 py-2.5 bg-green-100/50">
+          <div className="flex items-center gap-2">
+            <Check size={16} className="text-green-600" />
+            <span className="text-sm font-medium text-green-800">已确认 — 以下内容已发送给 AI</span>
+          </div>
+          <button
+            onClick={() => navigator.clipboard.writeText(processedMarkdown)}
+            className="flex items-center gap-1 text-xs px-2 py-1 rounded-md bg-white/80 text-green-600 hover:bg-green-100 transition-colors"
+            title="复制处理后的文本"
+          >
+            <Copy size={12} />
+            复制
+          </button>
+        </div>
+        <div className="px-4 py-2 bg-white/50 border-b border-green-100">
+          <span className="text-[10px] font-medium text-gray-400 uppercase">原文</span>
+          <p className="text-xs text-gray-500 mt-0.5 line-clamp-2">{originalText}</p>
+        </div>
+        <div className="px-4 py-3">
+          <div className="bg-white rounded-lg p-3 border border-green-100 text-sm text-gray-700 whitespace-pre-wrap font-mono">
+            {processedMarkdown}
+          </div>
         </div>
       </div>
     );

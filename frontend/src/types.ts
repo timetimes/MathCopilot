@@ -109,4 +109,4 @@ export interface ChatResponse {
 
 // ── 交互状态 ───────────────────────────────────────────────────
 
-export type InputStage = 'idle' | 'processing' | 'editing' | 'solving' | 'error';
+export type InputStage = 'idle' | 'processing' | 'editing' | 'solving' | 'confirmed' | 'error';

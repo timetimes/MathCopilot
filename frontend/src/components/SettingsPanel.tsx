@@ -17,11 +17,12 @@ import { getSettings, saveSettings } from '@/lib/api';
 import { fetchModelsFromProvider } from '@/lib/llm';
 
 const ROLES: { key: ModelRole; label: string; description: string }[] = [
-  { key: 'default',     label: '默认 (Default)',     description: '所有角色的回退模型' },
-  { key: 'input',       label: '输入清洗 (Input)',   description: '将非规范文字转为规范 Markdown' },
-  { key: 'solution',    label: '解题推理 (Solution)', description: '生成解题思路和答案' },
-  { key: 'viz_code',    label: '代码生成 (Viz Code)', description: '生成可视化 Python 代码' },
-  { key: 'router',      label: 'Skill 路由 (Router)', description: '选择最合适的 Skill（轻量模型推荐）' },
+  { key: 'default',      label: '默认 (Default)',        description: '所有角色的回退模型' },
+  { key: 'input',        label: '输入清洗 (Input)',      description: '将非规范文字转为规范 Markdown' },
+  { key: 'solution',     label: '解题推理 (Solution)',   description: '生成解题思路和答案' },
+  { key: 'viz_code',     label: '代码生成 (Viz Code)',   description: '生成可视化 Python 代码' },
+  { key: 'router',       label: 'Skill 路由 (Router)',   description: '选择最合适的 Skill（轻量模型推荐）' },
+  { key: 'formal_proof', label: '形式化证明 (Formal Proof)', description: '生成 Lean/Coq 等形式化证明（预留功能）' },
 ];
 
 const DEFAULT_CONFIG: ModelConfig = {
@@ -74,8 +75,9 @@ export function SettingsPanel({ isOpen, onClose }: SettingsPanelProps) {
     setDirty(true);
   };
 
-  const useGlobalKey = (role: ModelRole) => {
+  const useGlobalConfig = (role: ModelRole) => {
     updateRoleConfig(role, 'api_key', globalKey);
+    updateRoleConfig(role, 'base_url', globalUrl);
   };
 
     // ── 直接从用户配置的 URL 获取模型列表 ──────────────────────
@@ -121,7 +123,20 @@ export function SettingsPanel({ isOpen, onClose }: SettingsPanelProps) {
   };
 
   const handleSave = () => {
-    saveSettings(settings);
+    // 保存时：如果 Default 角色为空但全局配置有值，自动填充
+    const configMap = { ...settings.modelConfigMap };
+    const def = configMap.default || { ...DEFAULT_CONFIG };
+    if ((!def.api_key || def.api_key === DEFAULT_CONFIG.api_key) && globalKey) {
+      def.api_key = globalKey;
+    }
+    if (def.base_url === DEFAULT_CONFIG.base_url && globalUrl) {
+      def.base_url = globalUrl;
+    }
+    configMap.default = def;
+
+    const toSave: AppSettings = { modelConfigMap: configMap };
+    saveSettings(toSave);
+    setSettings(toSave);
     setDirty(false);
     onClose();
   };
@@ -276,7 +291,7 @@ export function SettingsPanel({ isOpen, onClose }: SettingsPanelProps) {
                   {/* Base URL */}
                   <div>
                     <label className="block text-[11px] font-medium text-gray-500 mb-0.5">
-                      Base URL
+                      Base URL <span className="text-gray-400">（留空使用全局）</span>
                     </label>
                     <input
                       type="text"
@@ -305,7 +320,7 @@ export function SettingsPanel({ isOpen, onClose }: SettingsPanelProps) {
                       />
                     </div>
                     <button
-                      onClick={() => useGlobalKey(role.key)}
+                      onClick={() => useGlobalConfig(role.key)}
                       className="px-2.5 py-1.5 text-xs bg-gray-100 hover:bg-gray-200 rounded-lg text-gray-600 whitespace-nowrap"
                     >
                       使用全局

@@ -3,7 +3,9 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
-import { Send, Lightbulb, ChevronRight, Loader2, Settings } from 'lucide-react';
+import remarkMath from 'remark-math';
+import rehypeKatex from 'rehype-katex';
+import { Send, Lightbulb, ChevronRight, Loader2, Settings, Copy } from 'lucide-react';
 
 // ── 输入清洗提示词 ────────────────────────────────────────────
 const INPUT_SYSTEM_PROMPT = `你是一个数学输入预处理助手。你的任务是将用户的原始输入规范化为干净的 Markdown 格式。
@@ -59,6 +61,7 @@ export function Chat({ onVisualization, onToggleSettings }: ChatProps) {
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
+  const userMsgIdRef = useRef<string | null>(null); // 追踪用户消息 ID，用于输入清洗后覆盖
 
   // 获取当前模型配置
   const getModelsConfig = useCallback((): ModelConfigMap => {
@@ -80,16 +83,24 @@ export function Chat({ onVisualization, onToggleSettings }: ChatProps) {
   const sendMessage = useCallback(async (showAnswer: boolean = false) => {
     if (!input.trim() || loading) return;
 
+    // 如果之前有清洗结果框，发新消息时清除
+    if (inputStage === 'confirmed') {
+      setProcessedMarkdown(null);
+      setOriginalText('');
+    }
+
     const currentInput = input;
     const modelsConfig = getModelsConfig();
 
     // 添加用户消息
+    const uid = Date.now().toString();
     const userMsg: ChatMessage = {
-      id: Date.now().toString(),
+      id: uid,
       role: 'user',
       content: currentInput,
     };
     setMessages(prev => [...prev, userMsg]);
+    userMsgIdRef.current = uid; // 保存 ID 以便后续覆盖
     setInput('');
     setLoading(true);
 
@@ -172,6 +183,16 @@ export function Chat({ onVisualization, onToggleSettings }: ChatProps) {
     setInputStage('solving');
     const modelsConfig = getModelsConfig();
 
+    // 用清洗后的 Markdown 覆盖原始用户消息
+    if (userMsgIdRef.current) {
+      setMessages(prev => prev.map(msg =>
+        msg.id === userMsgIdRef.current
+          ? { ...msg, content: editedMarkdown }
+          : msg
+      ));
+      userMsgIdRef.current = null;
+    }
+
     try {
       const res = await api.solve({
         message: editedMarkdown,
@@ -209,9 +230,8 @@ export function Chat({ onVisualization, onToggleSettings }: ChatProps) {
       }]);
     } finally {
       setLoading(false);
-      setInputStage('idle');
-      setProcessedMarkdown(null);
-      setOriginalText('');
+      setInputStage('confirmed'); // 保留清洗结果框在聊天中
+      // 不清除 processedMarkdown/originalText，让结果框持续显示
     }
   }, [originalText, conversationId, getModelsConfig, onVisualization]);
 
@@ -221,6 +241,7 @@ export function Chat({ onVisualization, onToggleSettings }: ChatProps) {
     setProcessedMarkdown(null);
     setOriginalText('');
     setLoading(false);
+    userMsgIdRef.current = null;
     // 恢复输入框
     setInput(originalText);
   }, [originalText]);
@@ -255,38 +276,38 @@ export function Chat({ onVisualization, onToggleSettings }: ChatProps) {
         {messages.map(msg => (
           <div
             key={msg.id}
-            className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'} animate-in fade-in duration-200`}
+            className={`group flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'} animate-in fade-in duration-200`}
           >
             <div
-              className={`max-w-[85%] rounded-2xl px-4 py-3 ${
+              className={`relative max-w-[85%] rounded-2xl px-4 py-3 ${
                 msg.role === 'user'
                   ? 'bg-blue-500 text-white rounded-br-sm'
                   : 'bg-white border border-gray-200 shadow-sm rounded-bl-sm'
               }`}
             >
-              {msg.role === 'assistant' ? (
-                <div className="markdown-content text-sm leading-relaxed text-gray-800">
-                  <ReactMarkdown remarkPlugins={[remarkGfm]}>
-                    {msg.content}
-                  </ReactMarkdown>
+              <div className={`text-sm leading-relaxed ${msg.role === 'user' ? 'text-white' : 'text-gray-800'} markdown-content`}>
+                <ReactMarkdown
+                  remarkPlugins={[remarkGfm, remarkMath]}
+                  rehypePlugins={[rehypeKatex]}
+                >
+                  {msg.content}
+                </ReactMarkdown>
 
-                  {/* 代码重试信息 */}
-                  {msg.suggestModelUpgrade && (
-                    <div className="mt-2 p-2 bg-orange-50 border border-orange-200 rounded-lg text-xs text-orange-700">
-                      ⚠️ 当前模型多次尝试仍无法生成有效可视化代码。
-                      <br />建议切换到更强的模型（如 GPT-4o / Claude Opus）。
-                    </div>
-                  )}
-                  {msg.vizCodeAttempts && msg.vizCodeAttempts > 0 && !msg.suggestModelUpgrade && (
-                    <div className="mt-1 text-[10px] text-gray-400">
-                      可视化代码重试 {msg.vizCodeAttempts} 次后成功
-                    </div>
-                  )}
-                </div>
-              ) : (
-                <p className="text-sm whitespace-pre-wrap">{msg.content}</p>
-              )}
+                {/* 代码重试信息 (仅 assistant) */}
+                {msg.role === 'assistant' && msg.suggestModelUpgrade && (
+                  <div className="mt-2 p-2 bg-orange-50 border border-orange-200 rounded-lg text-xs text-orange-700">
+                    ⚠️ 当前模型多次尝试仍无法生成有效可视化代码。
+                    <br />建议切换到更强的模型（如 GPT-4o / Claude Opus）。
+                  </div>
+                )}
+                {msg.role === 'assistant' && msg.vizCodeAttempts && msg.vizCodeAttempts > 0 && !msg.suggestModelUpgrade && (
+                  <div className="mt-1 text-[10px] text-gray-400">
+                    可视化代码重试 {msg.vizCodeAttempts} 次后成功
+                  </div>
+                )}
+              </div>
 
+              {/* 查看可视化按钮 (仅 assistant) */}
               {msg.role === 'assistant' && msg.visualizationData && (
                 <div className="mt-2 pt-2 border-t border-gray-100">
                   <button
@@ -299,6 +320,19 @@ export function Chat({ onVisualization, onToggleSettings }: ChatProps) {
                   </button>
                 </div>
               )}
+
+              {/* 复制按钮 */}
+              <button
+                onClick={() => navigator.clipboard.writeText(msg.content)}
+                className={`absolute -top-2 -right-2 p-1.5 rounded-full opacity-0 group-hover:opacity-100 transition-opacity shadow-sm ${
+                  msg.role === 'user'
+                    ? 'bg-blue-600 text-white hover:bg-blue-700'
+                    : 'bg-gray-200 text-gray-600 hover:bg-gray-300'
+                }`}
+                title="复制文本"
+              >
+                <Copy size={12} />
+              </button>
             </div>
           </div>
         ))}
@@ -342,11 +376,11 @@ export function Chat({ onVisualization, onToggleSettings }: ChatProps) {
             placeholder="输入数学问题..."
             rows={1}
             className="flex-1 resize-none rounded-xl border border-gray-300 bg-white px-4 py-2.5 text-sm outline-none focus:border-indigo-400 focus:ring-1 focus:ring-indigo-400 transition-all placeholder:text-gray-400"
-            disabled={loading || inputStage !== 'idle'}
+            disabled={loading || (inputStage !== 'idle' && inputStage !== 'confirmed')}
           />
           <button
             onClick={() => sendMessage(false)}
-            disabled={!input.trim() || loading || inputStage !== 'idle'}
+            disabled={!input.trim() || loading || (inputStage !== 'idle' && inputStage !== 'confirmed')}
             className="shrink-0 w-10 h-10 rounded-xl bg-indigo-500 text-white flex items-center justify-center hover:bg-indigo-600 disabled:opacity-40 disabled:cursor-not-allowed transition-all"
           >
             <Send size={18} />
