@@ -1,12 +1,21 @@
 import importlib
 import inspect
 import os
+import re
 import sys
+from pathlib import Path
 from typing import Any
 
 from backend.config import SKILLS_DIR
 
 _registry: dict[str, dict[str, Any]] = {}
+_SKILL_NAME_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
+
+
+def _validate_skill_name(name: str) -> str:
+    if not _SKILL_NAME_RE.fullmatch(name):
+        raise ValueError(f"Invalid skill name: {name!r}")
+    return name
 
 
 def _import_module(filepath: str):
@@ -67,9 +76,14 @@ def call_skill(name: str, params: dict[str, Any] | None = None) -> dict[str, Any
 
 
 def generate_skill_file(name: str, description: str, code: str) -> str:
-    fpath = os.path.join(SKILLS_DIR, f"{name}.py")
-    header = f"NAME = \"{name}\"\nDESCRIPTION = \"{description}\"\n\n"
+    safe_name = _validate_skill_name(name)
+    skills_dir = Path(SKILLS_DIR).resolve()
+    fpath = (skills_dir / f"{safe_name}.py").resolve()
+    if skills_dir not in fpath.parents:
+        raise ValueError(f"Skill path escapes skills dir: {fpath}")
+
+    header = f"NAME = {safe_name!r}\nDESCRIPTION = {description!r}\n\n"
     with open(fpath, "w", encoding="utf-8") as f:
         f.write(header + code)
     load_all_skills()
-    return fpath
+    return str(fpath)

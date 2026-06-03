@@ -13,6 +13,14 @@ from typing import Any
 ALLOWED_MODULES = {"math", "numpy", "sympy", "json", "random", "itertools", "collections", "typing"}
 
 
+def _safe_import(name, globals=None, locals=None, fromlist=(), level=0):
+    """Allow imports only from the approved module list."""
+    root = name.split(".")[0]
+    if root not in ALLOWED_MODULES:
+        raise SandboxError(f"涓嶅厑璁稿鍏ユā鍧? {name}")
+    return __import__(name, globals, locals, fromlist, level)
+
+
 class SandboxError(Exception):
     """沙箱安全检查失败"""
     pass
@@ -34,11 +42,25 @@ def _check_code_safety(code: str):
             # 直接调用危险内置函数
             if isinstance(func, ast.Name) and func.id in {"exec", "eval", "__import__", "open"}:
                 raise SandboxError(f"危险的内置函数 '{func.id}' 不允许使用")
+            if isinstance(func, ast.Name) and func.id in {"getattr", "setattr", "delattr"}:
+                if len(node.args) >= 2:
+                    second_arg = node.args[1]
+                    if isinstance(second_arg, ast.Constant) and isinstance(second_arg.value, str):
+                        if second_arg.value.startswith("__"):
+                            raise SandboxError("不允许访问双下划线属性")
             # obj.__import__() / obj.exec() 等
             if isinstance(func, ast.Attribute):
                 if isinstance(func.value, ast.Name):
                     if func.value.id in {"os", "subprocess", "sys", "shutil", "socket", "pathlib"}:
                         raise SandboxError(f"{func.value.id} 模块不允许在沙箱中使用")
+                if func.attr.startswith("__"):
+                    raise SandboxError("不允许访问双下划线属性")
+
+        if isinstance(node, ast.Attribute) and node.attr.startswith("__"):
+            raise SandboxError("不允许访问双下划线属性")
+
+        if isinstance(node, ast.Name) and node.id.startswith("__"):
+            raise SandboxError("不允许访问双下划线名称")
 
         # ── 检查 import ──────────────────────────────────────
         if isinstance(node, ast.Import):
@@ -91,7 +113,7 @@ def execute_math_code(code: str, input_data: dict[str, Any] | None = None) -> di
     safe_globals: dict[str, Any] = {
         "__builtins__": {
             # ── 必需：让 import 机制工作 ───────────────────────
-            "__import__": __import__,
+            "__import__": _safe_import,
             # ── 数学与基础操作 ────────────────────────────────
             "abs": abs, "all": all, "any": any, "bool": bool,
             "dict": dict, "enumerate": enumerate, "float": float,

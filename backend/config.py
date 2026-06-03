@@ -135,7 +135,7 @@ def _global_default_config() -> ModelConfig:
     return ModelConfig(
         provider=s.llm_provider,
         model_name=s.llm_model_name,
-        api_key=s.openai_api_key or s.anthropic_api_key,
+        api_key=s.anthropic_api_key if s.llm_provider == "anthropic" else (s.openai_api_key or s.anthropic_api_key),
         base_url=s.openai_base_url,
     )
 

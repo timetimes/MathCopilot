@@ -44,6 +44,18 @@ class TestCodeSafety:
         _check_code_safety("from math import sqrt")
         _check_code_safety("from collections import Counter")
 
+    def test_dunder_attribute_escape_blocked(self):
+        """阻止通过 dunder 属性链逃逸沙箱"""
+        with pytest.raises(SandboxError):
+            _check_code_safety("print((1).__class__.__mro__[1].__subclasses__())")
+
+    def test_dunder_globals_escape_blocked(self):
+        """阻止通过函数对象全局变量逃逸沙箱"""
+        with pytest.raises(SandboxError):
+            _check_code_safety(
+                "def f():\n    return 1\nprint(f.__globals__)"
+            )
+
 
 # ── 数学代码执行测试 ────────────────────────────────────────────────
 
