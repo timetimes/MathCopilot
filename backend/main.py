@@ -96,12 +96,20 @@ def get_config():
     注意：绝不返回 api_key 明文，仅返回是否已配置。
     """
     s = settings
+
+    # 检查每个角色在 .env 中是否有独立配置
+    role_has_env: dict[str, bool] = {}
+    for role in ["input", "solution", "router", "viz_code"]:
+        key_val = getattr(s, f"{role}_api_key", None)
+        role_has_env[role] = bool(key_val)
+
     return {
         "provider": s.llm_provider,
         "model_name": s.llm_model_name,
         "base_url": s.openai_base_url,
         "has_openai_key": bool(s.openai_api_key) and s.openai_api_key != "sk-your-key-here",
         "has_anthropic_key": bool(s.anthropic_api_key),
+        "role_has_env": role_has_env,
         "app_port": s.app_port,
         "debug": s.debug,
     }

@@ -38,6 +38,7 @@ interface BackendConfig {
   base_url: string;
   has_openai_key: boolean;
   has_anthropic_key: boolean;
+  role_has_env?: Record<string, boolean>;
 }
 
 interface SettingsPanelProps {
@@ -51,6 +52,7 @@ export function SettingsPanel({ isOpen, onClose }: SettingsPanelProps) {
   const [globalUrl, setGlobalUrl] = useState('');
   const [defaults, setDefaults] = useState<ModelConfig>({ ...EMPTY_CONFIG });
   const [hasBackendKey, setHasBackendKey] = useState(false);
+  const [roleHasEnv, setRoleHasEnv] = useState<Record<string, boolean>>({});
   const [dirty, setDirty] = useState(false);
 
   // 模型获取状态（每个角色独立）
@@ -81,6 +83,7 @@ export function SettingsPanel({ isOpen, onClose }: SettingsPanelProps) {
           });
           setGlobalUrl(prev => prev || cfg.base_url);
           setHasBackendKey(cfg.has_openai_key || cfg.has_anthropic_key);
+          if (cfg.role_has_env) setRoleHasEnv(cfg.role_has_env);
         })
         .catch(() => { /* 后端不可用时静默使用用户已保存值 */ });
     }
@@ -239,6 +242,7 @@ export function SettingsPanel({ isOpen, onClose }: SettingsPanelProps) {
             // 判断配置来源
             const roleHasOwnConfig = !!(settings.modelConfigMap[role.key]?.api_key);
             const defaultHasConfig = !!(settings.modelConfigMap['default']?.api_key);
+            const roleHasEnvConfig = roleHasEnv[role.key] ?? false;
             const inheritedModel = settings.modelConfigMap['default']?.model_name || defaults.model_name || '';
 
             let statusText: string;
@@ -252,6 +256,10 @@ export function SettingsPanel({ isOpen, onClose }: SettingsPanelProps) {
               statusText = '继承 Default';
               statusColor = 'bg-blue-100 text-blue-700';
               inheritSource = `继承自 Default: ${settings.modelConfigMap['default']?.model_name || defaults.model_name}`;
+            } else if (roleHasEnvConfig) {
+              statusText = '继承后端配置';
+              statusColor = 'bg-blue-100 text-blue-700';
+              inheritSource = `继承自后端: ${defaults.model_name || '角色独立配置'}`;
             } else if (hasBackendKey) {
               statusText = '继承后端配置';
               statusColor = 'bg-blue-100 text-blue-700';
