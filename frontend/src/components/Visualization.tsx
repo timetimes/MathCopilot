@@ -1,16 +1,57 @@
 'use client';
 
 import { useEffect, useRef, useCallback } from 'react';
-import type { GeometryData, FunctionPlotData, Point } from '@/types';
+import type { GeometryData, FunctionPlotData, GeometryElement, Point } from '@/types';
 
 interface GeometryViewProps {
   data: GeometryData;
   onPointDrag?: (label: string, x: number, y: number) => void;
 }
 
+/** 后端返回的 points/segments/circles 格式 → elements 格式 */
+function normalizeGeometryData(raw: any): GeometryElement[] {
+  const result: GeometryElement[] = [];
+
+  // 已有 elements 格式，直接返回
+  if (Array.isArray(raw.elements)) return raw.elements;
+
+  // points: [[x, y], ...]
+  if (Array.isArray(raw.points)) {
+    raw.points.forEach((p: any, i: number) => {
+      if (Array.isArray(p) && p.length >= 2) {
+        result.push({ type: 'point', label: String(i), x: p[0], y: p[1], color: '#3b82f6' });
+      }
+    });
+  }
+
+  // segments: [[[x1,y1],[x2,y2]], ...]
+  if (Array.isArray(raw.segments)) {
+    let pointIdx = result.length;
+    raw.segments.forEach((seg: any) => {
+      if (Array.isArray(seg) && seg.length >= 2) {
+        const p1 = seg[0], p2 = seg[1];
+        const fromLabel = `seg_from_${pointIdx}`;
+        const toLabel = `seg_to_${pointIdx}`;
+        if (Array.isArray(p1) && p1.length >= 2 && Array.isArray(p2) && p2.length >= 2) {
+          result.push({ type: 'point', label: fromLabel, x: p1[0], y: p1[1], color: '#ef4444' });
+          result.push({ type: 'point', label: toLabel, x: p2[0], y: p2[1], color: '#ef4444' });
+          result.push({ type: 'segment', from: fromLabel, to: toLabel, color: '#ef4444' });
+        }
+        pointIdx++;
+      }
+    });
+  }
+
+  // circles: ?（后端暂不返回）
+  return result;
+}
+
 export function GeometryView({ data, onPointDrag }: GeometryViewProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const boardRef = useRef<any>(null);
+
+  // 归一化：后端返回 points/segments/circles 格式 → elements 格式
+  const elements = normalizeGeometryData(data);
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -44,7 +85,7 @@ export function GeometryView({ data, onPointDrag }: GeometryViewProps) {
 
         const pointsMap: Record<string, any> = {};
 
-        for (const el of data.elements) {
+        for (const el of elements) {
           if (el.type === 'point' && el.x !== undefined && el.y !== undefined) {
             const pt = board.create('point', [el.x, el.y], {
               name: el.label || '',
@@ -68,7 +109,7 @@ export function GeometryView({ data, onPointDrag }: GeometryViewProps) {
           }
         }
 
-        for (const el of data.elements) {
+        for (const el of elements) {
           if (el.type === 'segment' && el.from && el.to) {
             const p1 = pointsMap[el.from];
             const p2 = pointsMap[el.to];

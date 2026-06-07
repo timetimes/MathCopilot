@@ -40,6 +40,8 @@ export default function Home() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [activeConvId, setActiveConvId] = useState<string | null>(null);
+  // key 只由用户主动切换对话时改变，避免消息处理过程中的 activeConvId 变化导致 Chat 被销毁
+  const [convSwitchKey, setConvSwitchKey] = useState(0);
 
   // Load conversations from localStorage on mount
   useEffect(() => {
@@ -53,16 +55,21 @@ export default function Home() {
 
   const handleNewChat = useCallback(() => {
     setActiveConvId(null);
+    setConvSwitchKey(k => k + 1);
   }, []);
 
   const handleSelectConv = useCallback((id: string) => {
     setActiveConvId(id);
+    setConvSwitchKey(k => k + 1);
   }, []);
 
   const handleDeleteConv = useCallback((id: string) => {
     deleteConversation(id);
     setConversations(loadConversations());
-    if (activeConvId === id) setActiveConvId(null);
+    if (activeConvId === id) {
+      setActiveConvId(null);
+      setConvSwitchKey(k => k + 1);
+    }
   }, [activeConvId]);
 
   const handleRenameConv = useCallback((id: string, title: string) => {
@@ -149,7 +156,7 @@ export default function Home() {
         {/* Main chat area */}
         <div className="flex-1 flex flex-col min-w-0">
           <Chat
-            key={activeConvId ?? 'new'}
+            key={convSwitchKey}
             initialMessages={currentMessages}
             conversationId={activeConv?.conversationId}
             onMessagesChange={handleMessagesChange}

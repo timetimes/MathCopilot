@@ -60,9 +60,11 @@ export function Chat({ initialMessages, conversationId: initialConvId, onMessage
   // Sync messages to parent (skip initial mount)
   useEffect(() => {
     if (isInitialMountRef.current) {
+      console.log('[Chat] effect: initial mount, skipping sync');
       isInitialMountRef.current = false;
       return;
     }
+    console.log('[Chat] effect: syncing messages to parent', { msgCount: messages.length, lastRole: messages[messages.length - 1]?.role });
     onMessagesChange(messages);
   }, [messages, onMessagesChange]);
 
@@ -77,8 +79,12 @@ export function Chat({ initialMessages, conversationId: initialConvId, onMessage
     }
   }, [input]);
 
+  // ✅ 调试：跟踪组件渲染
+  console.log('[Chat] render:', { messages: messages.length, inputStage, loading, input: input?.length, conversationId });
+
   // 发送消息
   const sendMessage = useCallback(async (showAnswer: boolean = false) => {
+    console.log('[Chat] sendMessage called', { showAnswer, input: input?.trim()?.length, loading });
     if (!input.trim() || loading) return;
 
     // 如果之前有清洗结果框，发新消息时清除
@@ -104,7 +110,8 @@ export function Chat({ initialMessages, conversationId: initialConvId, onMessage
 
     try {
       if (showAnswer) {
-        // 求解模式：直接调 /api/solve
+        // 求解模式
+        console.log('[Chat] sendMessage showAnswer path');
         setInputStage('solving');
         const res = await api.solve({
           message: currentInput,
@@ -112,6 +119,8 @@ export function Chat({ initialMessages, conversationId: initialConvId, onMessage
           show_answer: true,
           models_config: modelsConfig,
         }, modelsConfig);
+
+        console.log('[Chat] api.solve returned', { len: res?.reply?.length, conv_id: res?.conversation_id });
 
         if (!conversationId && res.conversation_id) {
           setConversationId(res.conversation_id);
@@ -128,20 +137,27 @@ export function Chat({ initialMessages, conversationId: initialConvId, onMessage
           vizCodeError: res.viz_code_error,
           suggestModelUpgrade: res.suggest_model_upgrade,
         };
-        setMessages(prev => [...prev, assistantMsg]);
+        console.log('[Chat] setting assistant message', { contentLen: assistantMsg.content?.length });
+        setMessages(prev => {
+          console.log('[Chat] setMessages (showAnswer) prev.len=', prev.length);
+          return [...prev, assistantMsg];
+        });
 
         if (res.visualization_data) {
           onVisualization(res.visualization_data as VisualizationData);
         }
         setInputStage('idle');
+        console.log('[Chat] showAnswer path done');
       } else {
         // Hint 模式：先做输入清洗（直接调 LLM，不走后端）
+        console.log('[Chat] sendMessage hint path', { hasInputModel: !!modelsConfig?.input, hasDefaultModel: !!modelsConfig?.default });
         setInputStage('processing');
 
         // 解析 Input 角色的模型配置
         let inputConfig = modelsConfig?.input || modelsConfig?.default || null;
         if (!inputConfig) {
           // 未配置清洗模型：跳过清洗，直接求解
+          console.log('[Chat] no input model, going direct solve');
           setInputStage('solving');
           try {
             const res = await api.solve({
@@ -151,6 +167,8 @@ export function Chat({ initialMessages, conversationId: initialConvId, onMessage
               models_config: modelsConfig,
               enable_viz: true,
             }, modelsConfig);
+
+            console.log('[Chat] direct solve returned', { len: res?.reply?.length, conv_id: res?.conversation_id, hasErr: !!res?.suggest_model_upgrade });
 
             if (!conversationId && res.conversation_id) {
               setConversationId(res.conversation_id);
@@ -167,12 +185,17 @@ export function Chat({ initialMessages, conversationId: initialConvId, onMessage
               vizCodeError: res.viz_code_error,
               suggestModelUpgrade: res.suggest_model_upgrade,
             };
-            setMessages(prev => [...prev, assistantMsg]);
+            console.log('[Chat] setting assistant msg (direct solve)', { contentLen: assistantMsg.content?.length });
+            setMessages(prev => {
+              console.log('[Chat] setMessages prev.len=', prev.length);
+              return [...prev, assistantMsg];
+            });
 
             if (res.visualization_data) {
               onVisualization(res.visualization_data as VisualizationData);
             }
           } catch (err) {
+            console.log('[Chat] direct solve error:', err);
             setMessages(prev => [...prev, {
               id: (Date.now() + 1).toString(),
               role: 'assistant',
@@ -182,6 +205,7 @@ export function Chat({ initialMessages, conversationId: initialConvId, onMessage
           }
           setInputStage('idle');
           setLoading(false);
+          console.log('[Chat] direct solve done, returning');
           return;
         }
         const cleanMarkdown = await callLLM(
@@ -196,6 +220,7 @@ export function Chat({ initialMessages, conversationId: initialConvId, onMessage
         return; // 等待用户确认后走 solve
       }
     } catch (err) {
+      console.log('[Chat] sendMessage outer catch:', err);
       setMessages(prev => [...prev, {
         id: (Date.now() + 1).toString(),
         role: 'assistant',
@@ -204,10 +229,12 @@ export function Chat({ initialMessages, conversationId: initialConvId, onMessage
       }]);
       setInputStage('idle');
     } finally {
+      console.log('[Chat] sendMessage finally block', { closureInputStage: inputStage, loadingState: loading });
       if (inputStage !== 'editing') {
         setLoading(false);
       }
     }
+    console.log('[Chat] sendMessage finished');
   }, [input, loading, conversationId, onVisualization, onConversationIdChange, getModelsConfig, inputStage]);
 
   // 用户确认输入编辑
@@ -261,6 +288,7 @@ export function Chat({ initialMessages, conversationId: initialConvId, onMessage
         onVisualization(res.visualization_data as VisualizationData);
       }
     } catch (err) {
+      console.log('[Chat] handleConfirmInput error:', err);
       setMessages(prev => [...prev, {
         id: (Date.now() + 1).toString(),
         role: 'assistant',
@@ -268,6 +296,7 @@ export function Chat({ initialMessages, conversationId: initialConvId, onMessage
         isHint: true,
       }]);
     } finally {
+      console.log('[Chat] handleConfirmInput finally, setting loading=false');
       setLoading(false);
       setInputStage('confirmed'); // 保留清洗结果框在聊天中
       // 不清除 processedMarkdown/originalText，让结果框持续显示
@@ -402,8 +431,8 @@ export function Chat({ initialMessages, conversationId: initialConvId, onMessage
           );
         })}
 
-        {/* Loading */}
-        {loading && inputStage === 'idle' && (
+        {/* Loading — 在求解过程中显示，清洗阶段由 InputEditor 自己处理 */}
+        {loading && (inputStage === 'solving') && (
           <div className="flex justify-start">
             <div className="bg-white border border-gray-200 rounded-2xl rounded-bl-sm px-4 py-3 shadow-sm">
               <div className="flex items-center gap-2 text-gray-500">
