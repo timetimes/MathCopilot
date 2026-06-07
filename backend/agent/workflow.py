@@ -95,6 +95,13 @@ def _parse_json_response(text: str) -> dict[str, Any]:
             return json.loads(brace_match.group())
         except json.JSONDecodeError:
             pass
+    # 尝试直接解析全文
+    try:
+        parsed = json.loads(text.strip())
+        if isinstance(parsed, dict):
+            return parsed
+    except json.JSONDecodeError:
+        pass
     return {"explanation": text, "skill": None, "params": {}}
 
 

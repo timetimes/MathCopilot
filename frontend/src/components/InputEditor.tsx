@@ -136,13 +136,24 @@ export function InputEditor({
     );
   }
 
-  // 求解中
+  // 求解中（复用已确认样式，避免与主区域 "正在解答" 重复）
   if (stage === 'solving') {
     return (
-      <div className="bg-indigo-50 border border-indigo-100 rounded-lg p-2.5 mb-2">
-        <div className="flex items-center gap-1.5 text-indigo-600">
-          <Loader2 size={14} className="animate-spin" />
-          <span className="text-xs font-medium">正在解答...</span>
+      <div className="bg-green-50 border border-green-200 rounded-lg mb-2 overflow-hidden">
+        <div className="flex items-center justify-between px-3 py-1.5 bg-green-100/50">
+          <div className="flex items-center gap-1.5">
+            <Check size={13} className="text-green-600" />
+            <span className="text-xs font-medium text-green-800">已确认 — 正在解答...</span>
+          </div>
+        </div>
+        <div className="px-3 py-1 bg-white/50 border-b border-green-100">
+          <span className="text-[9px] font-medium text-gray-400 uppercase">原文</span>
+          <p className="text-[11px] text-gray-500 mt-0.5 line-clamp-1">{originalText}</p>
+        </div>
+        <div className="px-3 py-2">
+          <div className="bg-white rounded-lg p-2 border border-green-100 text-xs text-gray-700 whitespace-pre-wrap font-mono leading-relaxed">
+            {processedMarkdown}
+          </div>
         </div>
       </div>
     );
