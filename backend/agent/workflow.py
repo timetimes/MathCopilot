@@ -207,7 +207,12 @@ def pipe_input(
     if not text.strip():
         return {"markdown": text, "original_text": text}
 
-    llm = _build_llm(resolve_role_config(models_config, ModelRole.INPUT))
+    input_cfg = resolve_role_config(models_config, ModelRole.INPUT)
+    if input_cfg.is_effectively_empty():
+        # 未配置有效 Input 模型，直接返回原文
+        return {"markdown": text, "original_text": text}
+
+    llm = _build_llm(input_cfg)
     if llm is None:
         # fallback：直接返回原文
         return {"markdown": text, "original_text": text}
