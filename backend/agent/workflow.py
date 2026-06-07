@@ -19,7 +19,7 @@ import re
 from typing import Any, Optional
 
 from backend.config import (
-    ModelConfig, ModelRole, resolve_role_config, settings,
+    ModelConfig, ModelRole, resolve_role_config, resolve_env_role_config, settings,
 )
 from backend.skills.skill_loader import (
     list_skills, call_skill, generate_skill_file,
@@ -230,14 +230,24 @@ def _route_skill(
 ) -> dict[str, Any]:
     """
     使用 Router Model 选择最适合的 Skill。
+    仅在显式配置了路由模型时使用 LLM，否则走关键词匹配。
     返回: {"skill_to_use": str|None, "params": dict, "needs_new_skill": bool}
     """
+
+    # 判断是否显式配置了路由模型
+    # 条件：config_map 中有 router 配置，或 .env 中有 ROUTER_MODEL_NAME
+    has_router_config = (
+        (models_config and ModelRole.ROUTER.value in models_config)
+        or resolve_env_role_config(ModelRole.ROUTER) is not None
+    )
+    if not has_router_config:
+        return _fallback_route(message)
+
     llm = _build_llm(
         resolve_role_config(models_config, ModelRole.ROUTER),
         temperature=0.2,
     )
     if llm is None:
-        # fallback: 关键词匹配
         return _fallback_route(message)
 
     skills_info = get_skill_tools_description()
@@ -431,6 +441,7 @@ def solve(
     user_message: str,
     models_config: dict[str, Any] | None = None,
     enable_viz: bool = True,
+    skip_cleaning: bool = False,
 ) -> dict[str, Any]:
     """
     第二阶段：Route → Solve → Viz Code。
@@ -444,8 +455,15 @@ def solve(
     available_skills = list_skills()
     skills_info = get_skill_tools_description()
 
+    # ── 0. 输入清洗（除非前端已清洗过） ──────────────────────────
+    if not skip_cleaning:
+        cleaned = pipe_input(user_message, models_config)
+        input_text = cleaned.get("markdown", user_message)
+    else:
+        input_text = user_message
+
     # ── 1. 路由 ───────────────────────────────────────────────
-    route_result = _route_skill(user_message, models_config)
+    route_result = _route_skill(input_text, models_config)
     skill_name = route_result.get("skill_to_use")
     skill_params = route_result.get("params", {})
 
@@ -455,7 +473,7 @@ def solve(
 
     if solution_llm is None:
         # 无 LLM → 使用 fallback
-        return _fallback_solve(user_message)
+        return _fallback_solve(input_text)
     else:
         prompt = SOLVE_SYSTEM_PROMPT.format(skills=skills_info)
         try:
@@ -467,7 +485,7 @@ def solve(
 
             messages = [
                 ("system", prompt + skill_context),
-                ("human", user_message),
+                ("human", input_text),
             ]
             response = solution_llm.invoke(messages)
             raw = response.content if hasattr(response, 'content') else str(response)
@@ -507,7 +525,7 @@ def solve(
             logger.error(f"Solution LLM invoke 失败: {e}")
             import traceback
             logger.error(traceback.format_exc())
-            return _fallback_solve(user_message, error=str(e))
+            return _fallback_solve(input_text, error=str(e))
 
     # ── 3. 调用已有 Skill ─────────────────────────────────────
     if skill_name and any(s["name"] == skill_name for s in available_skills):
@@ -528,7 +546,7 @@ def solve(
     # ── 4. 需要 Viz Code 生成可视化 ─────────────────────────
     if enable_viz and (skill_name or explanation):
         viz_result = _generate_viz_code_with_retry(
-            user_message=user_message,
+            user_message=input_text,
             solution_context=explanation,
             models_config=models_config,
         )

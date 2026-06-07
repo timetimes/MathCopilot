@@ -123,7 +123,7 @@ def chat(req: ChatRequest):
 
     try:
         if req.show_answer:
-            result = solve(input_text, models_config=req.models_config, enable_viz=req.enable_viz)
+            result = solve(input_text, models_config=req.models_config, enable_viz=req.enable_viz, skip_cleaning=bool(req.confirmed_markdown))
             reply = ChatResponse(
                 reply=result.get("reply", "解答完成。"),
                 is_hint_only=False,
@@ -160,7 +160,7 @@ def direct_solve(req: ChatRequest):
     conv_id = req.conversation_id or str(uuid.uuid4())
     try:
         input_text = req.confirmed_markdown or req.message
-        result = solve(input_text, models_config=req.models_config, enable_viz=req.enable_viz)
+        result = solve(input_text, models_config=req.models_config, enable_viz=req.enable_viz, skip_cleaning=bool(req.confirmed_markdown))
         return {
             "reply": result.get("reply", ""),
             "skill_used": result.get("skill_used"),

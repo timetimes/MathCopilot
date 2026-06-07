@@ -95,10 +95,10 @@ def resolve_role_config(
 ) -> ModelConfig:
     """
     从请求级 config_map 解析指定角色的配置。
-    回退链：角色配置 → DEFAULT → 全局 env
+    回退链：config_map[role] → config_map[default] → .env[role] → 全局 env
     """
     if not config_map:
-        return _global_default_config()
+        return resolve_env_role_config(role) or _global_default_config()
 
     # 尝试角色指定配置
     role_key = role.value
@@ -125,8 +125,39 @@ def resolve_role_config(
         if not cfg.is_effectively_empty():
             return cfg
 
+    # 尝试 .env 角色级配置
+    env_cfg = resolve_env_role_config(role)
+    if env_cfg is not None:
+        return env_cfg
+
     # 回退到全局 env
     return _global_default_config()
+
+
+def resolve_env_role_config(role: ModelRole) -> Optional[ModelConfig]:
+    """
+    从 Settings 的 {role}_* 字段构造 ModelConfig。
+    如果角色对应的 env 字段全部为空，返回 None。
+    """
+    s = settings
+    provider = getattr(s, f"{role.value}_provider", None)
+    model_name = getattr(s, f"{role.value}_model_name", None)
+    api_key = getattr(s, f"{role.value}_api_key", None)
+    base_url = getattr(s, f"{role.value}_base_url", None)
+
+    # 如果全部为空，视为未配置
+    if not any([provider, model_name, api_key, base_url]):
+        return None
+
+    cfg = ModelConfig(
+        provider=provider or "openai",
+        model_name=model_name or "gpt-4-turbo-preview",
+        api_key=api_key or "",
+        base_url=base_url or "https://api.openai.com/v1",
+    )
+    if cfg.is_effectively_empty():
+        return None
+    return cfg
 
 
 def _global_default_config() -> ModelConfig:
@@ -151,6 +182,28 @@ class Settings(BaseSettings):
     openai_api_key: str = "sk-your-key-here"
     openai_base_url: str = "https://api.openai.com/v1"
     anthropic_api_key: str = ""
+
+    # ── 角色级自定义模型（可选，留空则使用全局配置） ──────────
+    # 命名规则：{ROLE}_PROVIDER / {ROLE}_MODEL_NAME / {ROLE}_API_KEY / {ROLE}_BASE_URL
+    input_provider: Optional[str] = None
+    input_model_name: Optional[str] = None
+    input_api_key: Optional[str] = None
+    input_base_url: Optional[str] = None
+
+    solution_provider: Optional[str] = None
+    solution_model_name: Optional[str] = None
+    solution_api_key: Optional[str] = None
+    solution_base_url: Optional[str] = None
+
+    router_provider: Optional[str] = None
+    router_model_name: Optional[str] = None
+    router_api_key: Optional[str] = None
+    router_base_url: Optional[str] = None
+
+    viz_code_provider: Optional[str] = None
+    viz_code_model_name: Optional[str] = None
+    viz_code_api_key: Optional[str] = None
+    viz_code_base_url: Optional[str] = None
 
     # ── 应用 ───────────────────────────────────────────────────
     app_host: str = "0.0.0.0"

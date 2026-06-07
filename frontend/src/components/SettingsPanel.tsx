@@ -236,19 +236,43 @@ export function SettingsPanel({ isOpen, onClose }: SettingsPanelProps) {
             const fetching = fetchingModels[role.key];
             const error = fetchErrors[role.key];
 
+            // 判断配置来源
+            const roleHasOwnConfig = !!(settings.modelConfigMap[role.key]?.api_key);
+            const defaultHasConfig = !!(settings.modelConfigMap['default']?.api_key);
+            const inheritedModel = settings.modelConfigMap['default']?.model_name || defaults.model_name || '';
+
+            let statusText: string;
+            let statusColor: string;
+            let inheritSource: string | null = null;
+
+            if (roleHasOwnConfig) {
+              statusText = '已配置';
+              statusColor = 'bg-green-100 text-green-700';
+            } else if (defaultHasConfig) {
+              statusText = '继承 Default';
+              statusColor = 'bg-blue-100 text-blue-700';
+              inheritSource = `继承自 Default: ${settings.modelConfigMap['default']?.model_name || defaults.model_name}`;
+            } else if (hasBackendKey) {
+              statusText = '继承后端配置';
+              statusColor = 'bg-blue-100 text-blue-700';
+              inheritSource = `继承自后端: ${defaults.model_name || '默认模型'}`;
+            } else {
+              statusText = '未配置';
+              statusColor = 'bg-gray-100 text-gray-400';
+            }
+
             return (
               <section key={role.key} className="bg-white rounded-xl p-4 border border-gray-200">
                 <div className="flex items-start justify-between mb-3">
                   <div>
                     <h3 className="text-sm font-semibold text-gray-800">{role.label}</h3>
                     <p className="text-[11px] text-gray-500 mt-0.5">{role.description}</p>
+                    {inheritSource && (
+                      <p className="text-[10px] text-blue-500 mt-0.5">{inheritSource}</p>
+                    )}
                   </div>
-                  <span className={`text-[10px] px-2 py-0.5 rounded-full font-medium ${
-                    config.api_key ? 'bg-green-100 text-green-700'
-                    : hasBackendKey ? 'bg-blue-100 text-blue-700'
-                    : 'bg-gray-100 text-gray-400'
-                  }`}>
-                    {config.api_key ? '已配置' : hasBackendKey ? '环境变量已配置' : '未配置'}
+                  <span className={`text-[10px] px-2 py-0.5 rounded-full font-medium ${statusColor}`}>
+                    {statusText}
                   </span>
                 </div>
 
@@ -309,7 +333,7 @@ export function SettingsPanel({ isOpen, onClose }: SettingsPanelProps) {
                           type="text"
                           value={config.model_name}
                           onChange={e => updateRoleConfig(role.key, 'model_name', e.target.value)}
-                          placeholder="gpt-4o / claude-sonnet-4-20250514"
+                          placeholder={roleHasOwnConfig ? "gpt-4o / claude-sonnet-4-20250514" : `继承: ${inheritedModel}`}
                           className="w-full px-2.5 py-1.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-400 outline-none"
                         />
                       )}

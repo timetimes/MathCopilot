@@ -11,7 +11,7 @@
  */
 
 import { useState } from 'react';
-import { Check, X, Edit3, Loader2, Copy, Eye, EyeOff } from 'lucide-react';
+import { Check, X, Edit3, Loader2, Copy } from 'lucide-react';
 import type { InputStage } from '@/types';
 
 interface InputEditorProps {
@@ -21,8 +21,8 @@ interface InputEditorProps {
   processedMarkdown: string;
   /** 当前阶段 */
   stage: InputStage;
-  /** 用户确认编辑后的内容 (markdown, 需要可视化) */
-  onConfirm: (editedMarkdown: string, enableViz: boolean) => void;
+  /** 用户确认编辑后的内容 (markdown) */
+  onConfirm: (editedMarkdown: string) => void;
   /** 取消，回退到原始输入 */
   onCancel: () => void;
 }
@@ -36,7 +36,6 @@ export function InputEditor({
 }: InputEditorProps) {
   const [edited, setEdited] = useState(processedMarkdown);
   const [isEditing, setIsEditing] = useState(false);
-  const [enableViz, setEnableViz] = useState(false);
 
   // 当 processedMarkdown 变化时同步
   if (processedMarkdown !== edited && !isEditing && stage === 'editing') {
@@ -44,7 +43,7 @@ export function InputEditor({
   }
 
   const handleConfirm = () => {
-    onConfirm(isEditing ? edited : processedMarkdown, enableViz);
+    onConfirm(isEditing ? edited : processedMarkdown);
   };
 
   // 处理中
@@ -92,22 +91,6 @@ export function InputEditor({
               {isEditing ? '预览' : '编辑'}
             </button>
           </div>
-        </div>
-
-        {/* 可视化开关 */}
-        <div className="px-3 py-1 bg-white/30 border-b border-amber-100">
-          <label className="flex items-center gap-1.5 cursor-pointer select-none">
-            <input
-              type="checkbox"
-              checked={enableViz}
-              onChange={e => setEnableViz(e.target.checked)}
-              className="w-3 h-3 rounded border-amber-300 text-amber-600 focus:ring-amber-400"
-            />
-            <span className="text-[11px] text-gray-600 flex items-center gap-1">
-              {enableViz ? <Eye size={10} /> : <EyeOff size={10} />}
-              需要可视化图形
-            </span>
-          </label>
         </div>
 
         {/* 原文 */}

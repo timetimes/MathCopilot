@@ -46,6 +46,7 @@ export function Chat({ initialMessages, conversationId: initialConvId, onMessage
   const [inputStage, setInputStage] = useState<InputStage>('idle');
   const [processedMarkdown, setProcessedMarkdown] = useState<string | null>(null);
   const [originalText, setOriginalText] = useState('');
+  const [enableViz, setEnableViz] = useState(true); // 可视化总开关
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
@@ -118,6 +119,7 @@ export function Chat({ initialMessages, conversationId: initialConvId, onMessage
           conversation_id: conversationId,
           show_answer: true,
           models_config: modelsConfig,
+          enable_viz: enableViz,
         }, modelsConfig);
 
         console.log('[Chat] api.solve returned', { len: res?.reply?.length, conv_id: res?.conversation_id });
@@ -165,7 +167,7 @@ export function Chat({ initialMessages, conversationId: initialConvId, onMessage
               conversation_id: conversationId,
               show_answer: true,
               models_config: modelsConfig,
-              enable_viz: true,
+              enable_viz: enableViz,
             }, modelsConfig);
 
             console.log('[Chat] direct solve returned', { len: res?.reply?.length, conv_id: res?.conversation_id, hasErr: !!res?.suggest_model_upgrade });
@@ -238,7 +240,7 @@ export function Chat({ initialMessages, conversationId: initialConvId, onMessage
   }, [input, loading, conversationId, onVisualization, onConversationIdChange, getModelsConfig, inputStage]);
 
   // 用户确认输入编辑
-  const handleConfirmInput = useCallback(async (editedMarkdown: string, enableViz: boolean = true) => {
+  const handleConfirmInput = useCallback(async (editedMarkdown: string) => {
     if (!originalText) return;
 
     setLoading(true);
@@ -437,7 +439,7 @@ export function Chat({ initialMessages, conversationId: initialConvId, onMessage
             <div className="bg-white border border-gray-200 rounded-2xl rounded-bl-sm px-4 py-3 shadow-sm">
               <div className="flex items-center gap-2 text-gray-500">
                 <Loader2 size={16} className="animate-spin" />
-                <span className="text-sm">思考中...</span>
+                <span className="text-sm">正在解答...</span>
               </div>
             </div>
           </div>
@@ -481,9 +483,20 @@ export function Chat({ initialMessages, conversationId: initialConvId, onMessage
           </button>
         </div>
         <div className="flex items-center justify-between mt-1.5 px-1">
-          <p className="text-[10px] text-gray-400">
-            按 Enter 发送 · Shift+Enter 换行
-          </p>
+          <div className="flex items-center gap-3">
+            <label className="flex items-center gap-1 text-[10px] text-gray-400 cursor-pointer select-none">
+              <input
+                type="checkbox"
+                checked={enableViz}
+                onChange={e => setEnableViz(e.target.checked)}
+                className="w-3 h-3 rounded border-gray-300 text-indigo-500 focus:ring-indigo-400"
+              />
+              生成可视化图形
+            </label>
+            <p className="text-[10px] text-gray-400">
+              按 Enter 发送 · Shift+Enter 换行
+            </p>
+          </div>
           <button
             onClick={() => setShowSettings(true)}
             className="flex items-center gap-1 text-[10px] text-gray-400 hover:text-indigo-500 transition-colors"
