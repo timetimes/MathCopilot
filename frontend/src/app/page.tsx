@@ -87,6 +87,13 @@ export default function Home() {
     }
   }, [activeConvId]);
 
+  const handleConversationIdChange = useCallback((conversationId: string) => {
+    if (activeConvId) {
+      updateConversation(activeConvId, { conversationId });
+      setConversations(loadConversations());
+    }
+  }, [activeConvId]);
+
   const handleVisualization = useCallback((data: VisualizationData) => {
     setVisualizationData(data);
     setIsPanelOpen(true);
@@ -146,6 +153,7 @@ export default function Home() {
             initialMessages={currentMessages}
             conversationId={activeConv?.conversationId}
             onMessagesChange={handleMessagesChange}
+            onConversationIdChange={handleConversationIdChange}
             onVisualization={handleVisualization}
           />
         </div>

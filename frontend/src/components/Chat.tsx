@@ -29,11 +29,12 @@ interface ChatProps {
   initialMessages: ChatMessage[];
   conversationId?: string;
   onMessagesChange: (messages: ChatMessage[]) => void;
+  onConversationIdChange: (conversationId: string) => void;
   onVisualization: (data: VisualizationData) => void;
   onToggleSettings?: () => void;
 }
 
-export function Chat({ initialMessages, conversationId: initialConvId, onMessagesChange, onVisualization, onToggleSettings }: ChatProps) {
+export function Chat({ initialMessages, conversationId: initialConvId, onMessagesChange, onConversationIdChange, onVisualization, onToggleSettings }: ChatProps) {
   const [messages, setMessages] = useState<ChatMessage[]>(initialMessages);
 
   const [input, setInput] = useState('');
@@ -49,16 +50,19 @@ export function Chat({ initialMessages, conversationId: initialConvId, onMessage
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const userMsgIdRef = useRef<string | null>(null); // 追踪用户消息 ID，用于输入清洗后覆盖
+  const isInitialMountRef = useRef(true);
 
   // 获取当前模型配置
   const getModelsConfig = useCallback((): ModelConfigMap => {
     return getSettings().modelConfigMap;
   }, []);
 
-  // Sync messages to parent
+  // Sync messages to parent (skip initial mount)
   useEffect(() => {
-    // Skip sync for the initial welcome-only state
-    if (messages.length <= 1 && messages[0]?.id === 'welcome') return;
+    if (isInitialMountRef.current) {
+      isInitialMountRef.current = false;
+      return;
+    }
     onMessagesChange(messages);
   }, [messages, onMessagesChange]);
 
@@ -111,6 +115,7 @@ export function Chat({ initialMessages, conversationId: initialConvId, onMessage
 
         if (!conversationId && res.conversation_id) {
           setConversationId(res.conversation_id);
+          onConversationIdChange(res.conversation_id);
         }
 
         const assistantMsg: ChatMessage = {
@@ -149,6 +154,7 @@ export function Chat({ initialMessages, conversationId: initialConvId, onMessage
 
             if (!conversationId && res.conversation_id) {
               setConversationId(res.conversation_id);
+              onConversationIdChange(res.conversation_id);
             }
 
             const assistantMsg: ChatMessage = {
@@ -202,7 +208,7 @@ export function Chat({ initialMessages, conversationId: initialConvId, onMessage
         setLoading(false);
       }
     }
-  }, [input, loading, conversationId, onVisualization, getModelsConfig, inputStage]);
+  }, [input, loading, conversationId, onVisualization, onConversationIdChange, getModelsConfig, inputStage]);
 
   // 用户确认输入编辑
   const handleConfirmInput = useCallback(async (editedMarkdown: string, enableViz: boolean = true) => {
@@ -236,6 +242,7 @@ export function Chat({ initialMessages, conversationId: initialConvId, onMessage
 
       if (!conversationId && res.conversation_id) {
         setConversationId(res.conversation_id);
+        onConversationIdChange(res.conversation_id);
       }
 
       const assistantMsg: ChatMessage = {
@@ -265,7 +272,7 @@ export function Chat({ initialMessages, conversationId: initialConvId, onMessage
       setInputStage('confirmed'); // 保留清洗结果框在聊天中
       // 不清除 processedMarkdown/originalText，让结果框持续显示
     }
-  }, [originalText, conversationId, getModelsConfig, onVisualization]);
+  }, [originalText, conversationId, getModelsConfig, onVisualization, onConversationIdChange]);
 
   // 取消输入编辑
   const handleCancelInput = useCallback(() => {
