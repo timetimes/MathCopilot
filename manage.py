@@ -64,12 +64,18 @@ def cmd_start(args):
     if not frontend_out.is_dir():
         print(f"{WARN} 前端静态文件不存在，尝试自动构建...")
         # 检查 node/npm
-        node_ok = subprocess.run(["node", "--version"], capture_output=True, text=True).returncode == 0
-        npm_ok = subprocess.run(["npm", "--version"], capture_output=True, text=True).returncode == 0
+        try:
+            node_ok = subprocess.run("node --version", shell=True, capture_output=True, text=True).returncode == 0
+        except FileNotFoundError:
+            node_ok = False
+        try:
+            npm_ok = subprocess.run("npm --version", shell=True, capture_output=True, text=True).returncode == 0
+        except FileNotFoundError:
+            npm_ok = False
         if node_ok and npm_ok:
             print("   正在安装前端依赖并构建...")
-            subprocess.run(["npm", "install"], cwd=ROOT / "frontend", capture_output=True)
-            build_result = subprocess.run(["npm", "run", "build"], cwd=ROOT / "frontend", capture_output=True, text=True)
+            subprocess.run("npm install", shell=True, cwd=ROOT / "frontend", capture_output=True)
+            build_result = subprocess.run("npm run build", shell=True, cwd=ROOT / "frontend", capture_output=True, text=True)
             if build_result.returncode == 0:
                 print(f"{OK} 前端构建成功")
             else:
