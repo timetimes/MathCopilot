@@ -50,6 +50,7 @@ export function SettingsPanel({ isOpen, onClose }: SettingsPanelProps) {
   const [globalKey, setGlobalKey] = useState('');
   const [globalUrl, setGlobalUrl] = useState('');
   const [defaults, setDefaults] = useState<ModelConfig>({ ...EMPTY_CONFIG });
+  const [hasBackendKey, setHasBackendKey] = useState(false);
   const [dirty, setDirty] = useState(false);
 
   // 模型获取状态（每个角色独立）
@@ -79,6 +80,7 @@ export function SettingsPanel({ isOpen, onClose }: SettingsPanelProps) {
             base_url: cfg.base_url,
           });
           setGlobalUrl(prev => prev || cfg.base_url);
+          setHasBackendKey(cfg.has_openai_key || cfg.has_anthropic_key);
         })
         .catch(() => { /* 后端不可用时静默使用用户已保存值 */ });
     }
@@ -242,9 +244,11 @@ export function SettingsPanel({ isOpen, onClose }: SettingsPanelProps) {
                     <p className="text-[11px] text-gray-500 mt-0.5">{role.description}</p>
                   </div>
                   <span className={`text-[10px] px-2 py-0.5 rounded-full font-medium ${
-                    config.api_key ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-400'
+                    config.api_key ? 'bg-green-100 text-green-700'
+                    : hasBackendKey ? 'bg-blue-100 text-blue-700'
+                    : 'bg-gray-100 text-gray-400'
                   }`}>
-                    {config.api_key ? '已配置' : '未配置'}
+                    {config.api_key ? '已配置' : hasBackendKey ? '环境变量已配置' : '未配置'}
                   </span>
                 </div>
 
