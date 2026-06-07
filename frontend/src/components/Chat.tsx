@@ -52,10 +52,42 @@ export function Chat({ initialMessages, conversationId: initialConvId, onMessage
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const userMsgIdRef = useRef<string | null>(null); // 追踪用户消息 ID，用于输入清洗后覆盖
   const isInitialMountRef = useRef(true);
+  const backendConfigRef = useRef<{ hasKey: boolean; model: string; baseUrl: string; provider: string } | null>(null);
 
-  // 获取当前模型配置
+  // 获取前端模型配置，无配置时 fallback 到后端 /api/config
   const getModelsConfig = useCallback((): ModelConfigMap => {
-    return getSettings().modelConfigMap;
+    const local = getSettings().modelConfigMap;
+    // 前端有配置 → 用前端的
+    if (Object.keys(local).length > 0) return local;
+    // 前端无配置但后端有 key → 用后端配置
+    const bc = backendConfigRef.current;
+    if (bc?.hasKey) {
+      return {
+        default: {
+          provider: bc.provider as 'openai' | 'anthropic' | 'mock',
+          model_name: bc.model,
+          api_key: '__backend__',
+          base_url: bc.baseUrl,
+        },
+      };
+    }
+    return local;
+  }, []);
+
+  // 初始化时获取后端配置
+  useEffect(() => {
+    fetch('/api/config')
+      .then(r => r.ok ? r.json() : null)
+      .then((cfg: any) => {
+        if (!cfg) return;
+        backendConfigRef.current = {
+          hasKey: cfg.has_openai_key || cfg.has_anthropic_key,
+          model: cfg.model_name || '',
+          baseUrl: cfg.base_url || '',
+          provider: cfg.provider || 'openai',
+        };
+      })
+      .catch(() => {});
   }, []);
 
   // Sync messages to parent (skip initial mount)
@@ -210,11 +242,23 @@ export function Chat({ initialMessages, conversationId: initialConvId, onMessage
           console.log('[Chat] direct solve done, returning');
           return;
         }
-        const cleanMarkdown = await callLLM(
-          INPUT_SYSTEM_PROMPT,
-          currentInput,
-          inputConfig as ModelConfig,
-        );
+        let cleanMarkdown: string;
+        if (inputConfig.api_key === '__backend__') {
+          // 无前端 API Key：后端代劳清洗
+          const cleanRes = await fetch('/api/clean-input', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ text: currentInput, models_config: modelsConfig }),
+          });
+          const cleanData = await cleanRes.json();
+          cleanMarkdown = cleanData.markdown || currentInput;
+        } else {
+          cleanMarkdown = await callLLM(
+            INPUT_SYSTEM_PROMPT,
+            currentInput,
+            inputConfig as ModelConfig,
+          );
+        }
         setOriginalText(currentInput);
         setProcessedMarkdown(cleanMarkdown);
         setInputStage('editing');

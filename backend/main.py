@@ -210,6 +210,16 @@ def execute_code(req: dict):
     return result
 
 
+@app.post("/api/clean-input")
+def clean_input(req: dict):
+    """前端无 API Key 时，由后端代为清洗输入文本"""
+    text = req.get("text", "")
+    models_config = req.get("models_config")
+    from backend.agent.workflow import pipe_input
+    result = pipe_input(text, models_config)
+    return {"markdown": result.get("markdown", text)}
+
+
 # ── 挂载前端（在 API 路由之后，不会覆盖 API） ──────────────────
 if _FRONTEND_ENABLED:
     app.mount("/", StaticFiles(directory=str(_frontend_dir), html=True), name="frontend")
