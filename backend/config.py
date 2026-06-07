@@ -1,12 +1,12 @@
 """
 Math Copilot - 配置模块
-使用 pydantic-settings 从环境变量加载配置，含合理默认值。
+使用 pydantic-settings 从 backend/.env 加载配置，含合理默认值。
 
 支持多角色模型路由：
   - 每个角色 (input/solution/viz_code/router) 可独立配置 provider/model/key/url
   - 未配置的角色自动回退到 DEFAULT 角色
   - DEFAULT 未配置则使用全局 env 配置
-  - 所有旧 env 变量向后兼容
+  - 所有配置均通过 backend/.env 管理
 """
 
 import os
@@ -14,7 +14,7 @@ from enum import Enum
 from pathlib import Path
 from typing import Any, Literal, Optional
 
-from pydantic import BaseModel
+from pydantic import BaseModel, model_validator
 from pydantic_settings import BaseSettings
 
 
@@ -152,12 +152,6 @@ class Settings(BaseSettings):
     openai_base_url: str = "https://api.openai.com/v1"
     anthropic_api_key: str = ""
 
-    # ── 可选：角色专用模型覆盖（env 级别） ────────────────────
-    input_model_name: str = ""
-    solution_model_name: str = ""
-    viz_code_model_name: str = ""
-    router_model_name: str = ""
-
     # ── 应用 ───────────────────────────────────────────────────
     app_host: str = "0.0.0.0"
     app_port: int = 8000
@@ -171,8 +165,16 @@ class Settings(BaseSettings):
     skills_dir: str = str(Path(__file__).parent / "skills")
 
     class Config:
-        env_file = ".env"
+        env_file = str(Path(__file__).parent / ".env")
         env_file_encoding = "utf-8"
+
+    @model_validator(mode="after")
+    def _resolve_relative_paths(self):
+        """将相对路径解析为基于本文件位置的绝对路径，避免 CWD 影响。"""
+        p = Path(self.skills_dir)
+        if not p.is_absolute():
+            self.skills_dir = str((Path(__file__).parent / p).resolve())
+        return self
 
 
 settings = Settings()

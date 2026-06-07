@@ -89,6 +89,24 @@ def health_check():
     return {"status": "ok", "skills_loaded": len(list_skills())}
 
 
+@app.get("/api/config")
+def get_config():
+    """返回脱敏后的后端配置，供前端配置面板作为默认值。
+
+    注意：绝不返回 api_key 明文，仅返回是否已配置。
+    """
+    s = settings
+    return {
+        "provider": s.llm_provider,
+        "model_name": s.llm_model_name,
+        "base_url": s.openai_base_url,
+        "has_openai_key": bool(s.openai_api_key) and s.openai_api_key != "sk-your-key-here",
+        "has_anthropic_key": bool(s.anthropic_api_key),
+        "app_port": s.app_port,
+        "debug": s.debug,
+    }
+
+
 @app.get("/api/skills")
 def get_skills():
     return {"skills": list_skills()}

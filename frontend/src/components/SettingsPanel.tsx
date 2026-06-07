@@ -25,12 +25,20 @@ const ROLES: { key: ModelRole; label: string; description: string }[] = [
   { key: 'formal_proof', label: '形式化证明 (Formal Proof)', description: '生成 Lean/Coq 等形式化证明（预留功能）' },
 ];
 
-const DEFAULT_CONFIG: ModelConfig = {
+const EMPTY_CONFIG: ModelConfig = {
   provider: 'openai',
-  model_name: 'gpt-4-turbo-preview',
+  model_name: '',
   api_key: '',
-  base_url: 'https://api.openai.com/v1',
+  base_url: '',
 };
+
+interface BackendConfig {
+  provider: ModelConfig['provider'];
+  model_name: string;
+  base_url: string;
+  has_openai_key: boolean;
+  has_anthropic_key: boolean;
+}
 
 interface SettingsPanelProps {
   isOpen: boolean;
@@ -40,7 +48,8 @@ interface SettingsPanelProps {
 export function SettingsPanel({ isOpen, onClose }: SettingsPanelProps) {
   const [settings, setSettings] = useState<AppSettings>({ modelConfigMap: {} });
   const [globalKey, setGlobalKey] = useState('');
-  const [globalUrl, setGlobalUrl] = useState('https://api.openai.com/v1');
+  const [globalUrl, setGlobalUrl] = useState('');
+  const [defaults, setDefaults] = useState<ModelConfig>({ ...EMPTY_CONFIG });
   const [dirty, setDirty] = useState(false);
 
   // 模型获取状态（每个角色独立）
@@ -48,26 +57,41 @@ export function SettingsPanel({ isOpen, onClose }: SettingsPanelProps) {
   const [modelLists, setModelLists] = useState<Record<string, { id: string; name: string }[]>>({});
   const [fetchErrors, setFetchErrors] = useState<Record<string, string>>({});
 
-  // 加载配置
+  // 加载配置 + 拉取后端默认值
   useEffect(() => {
     if (isOpen) {
       const s = getSettings();
       setSettings(s);
       const def = s.modelConfigMap.default;
       setGlobalKey(def?.api_key || '');
-      setGlobalUrl(def?.base_url || 'https://api.openai.com/v1');
+      setGlobalUrl(def?.base_url || '');
       setDirty(false);
+
+      // 从后端拉取默认值填入全局配置
+      fetch('/api/config')
+        .then(r => r.ok ? r.json() : null)
+        .then((cfg: BackendConfig | null) => {
+          if (!cfg) return;
+          setDefaults({
+            provider: cfg.provider,
+            model_name: cfg.model_name,
+            api_key: '',
+            base_url: cfg.base_url,
+          });
+          setGlobalUrl(prev => prev || cfg.base_url);
+        })
+        .catch(() => { /* 后端不可用时静默使用用户已保存值 */ });
     }
   }, [isOpen]);
 
   const getRoleConfig = (role: ModelRole): ModelConfig => {
-    return settings.modelConfigMap[role] || { ...DEFAULT_CONFIG };
+    return settings.modelConfigMap[role] || { ...defaults };
   };
 
   const updateRoleConfig = (role: ModelRole, field: keyof ModelConfig, value: string) => {
     setSettings(prev => {
       const configMap = { ...prev.modelConfigMap };
-      const current = { ...(configMap[role] || { ...DEFAULT_CONFIG }) };
+      const current = { ...(configMap[role] || { ...defaults }) };
       (current as any)[field] = value;
       configMap[role] = current;
       return { modelConfigMap: configMap };
@@ -125,11 +149,11 @@ export function SettingsPanel({ isOpen, onClose }: SettingsPanelProps) {
   const handleSave = () => {
     // 保存时：如果 Default 角色为空但全局配置有值，自动填充
     const configMap = { ...settings.modelConfigMap };
-    const def = configMap.default || { ...DEFAULT_CONFIG };
-    if ((!def.api_key || def.api_key === DEFAULT_CONFIG.api_key) && globalKey) {
+    const def = configMap.default || { ...defaults };
+    if (!def.api_key && globalKey) {
       def.api_key = globalKey;
     }
-    if (def.base_url === DEFAULT_CONFIG.base_url && globalUrl) {
+    if (!def.base_url && globalUrl) {
       def.base_url = globalUrl;
     }
     configMap.default = def;
