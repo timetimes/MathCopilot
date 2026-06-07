@@ -54,24 +54,9 @@ export function Chat({ initialMessages, conversationId: initialConvId, onMessage
   const isInitialMountRef = useRef(true);
   const backendConfigRef = useRef<{ hasKey: boolean; model: string; baseUrl: string; provider: string } | null>(null);
 
-  // 获取前端模型配置，无配置时 fallback 到后端 /api/config
+  // 获取前端模型配置
   const getModelsConfig = useCallback((): ModelConfigMap => {
-    const local = getSettings().modelConfigMap;
-    // 前端有配置 → 用前端的
-    if (Object.keys(local).length > 0) return local;
-    // 前端无配置但后端有 key → 用后端配置
-    const bc = backendConfigRef.current;
-    if (bc?.hasKey) {
-      return {
-        default: {
-          provider: bc.provider as 'openai' | 'anthropic' | 'mock',
-          model_name: bc.model,
-          api_key: '__backend__',
-          base_url: bc.baseUrl,
-        },
-      };
-    }
-    return local;
+    return getSettings().modelConfigMap;
   }, []);
 
   // 初始化时获取后端配置
@@ -187,10 +172,12 @@ export function Chat({ initialMessages, conversationId: initialConvId, onMessage
         console.log('[Chat] sendMessage hint path', { hasInputModel: !!modelsConfig?.input, hasDefaultModel: !!modelsConfig?.default });
         setInputStage('processing');
 
-        // 解析 Input 角色的模型配置
+        // 判断是否有可用的清洗模型
         let inputConfig = modelsConfig?.input || modelsConfig?.default || null;
-        if (!inputConfig) {
-          // 未配置清洗模型：跳过清洗，直接求解
+        const hasBackend = backendConfigRef.current?.hasKey;
+
+        if (!inputConfig && !hasBackend) {
+          // 完全无配置：跳过清洗，直接求解
           console.log('[Chat] no input model, going direct solve');
           setInputStage('solving');
           try {
@@ -242,17 +229,19 @@ export function Chat({ initialMessages, conversationId: initialConvId, onMessage
           console.log('[Chat] direct solve done, returning');
           return;
         }
+
         let cleanMarkdown: string;
-        if (inputConfig.api_key === '__backend__') {
-          // 无前端 API Key：后端代劳清洗
+        if (!inputConfig && hasBackend) {
+          // 仅后端有 Key：后端代劳清洗
           const cleanRes = await fetch('/api/clean-input', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ text: currentInput, models_config: modelsConfig }),
+            body: JSON.stringify({ text: currentInput }),
           });
           const cleanData = await cleanRes.json();
           cleanMarkdown = cleanData.markdown || currentInput;
         } else {
+          // 前端有配置：前端直接调 LLM 清洗
           cleanMarkdown = await callLLM(
             INPUT_SYSTEM_PROMPT,
             currentInput,
