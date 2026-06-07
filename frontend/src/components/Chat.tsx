@@ -26,32 +26,19 @@ import { InputEditor } from './InputEditor';
 import { SettingsPanel } from './SettingsPanel';
 
 interface ChatProps {
+  initialMessages: ChatMessage[];
+  conversationId?: string;
+  onMessagesChange: (messages: ChatMessage[]) => void;
   onVisualization: (data: VisualizationData) => void;
   onToggleSettings?: () => void;
 }
 
-export function Chat({ onVisualization, onToggleSettings }: ChatProps) {
-  const [messages, setMessages] = useState<ChatMessage[]>([
-    {
-      id: 'welcome',
-      role: 'assistant',
-      content: `# 👋 欢迎使用 Math Copilot！
-
-我可以帮助你解决数学和几何问题。
-
-**试试以下问题：**
-- 计算点 A(1,2) 到点 B(4,6) 的距离
-- 绘制函数 y = sin(x) 的图像
-- 求两点连线的中点坐标
-
-> 💡 点击右上角齿轮图标可配置 API Key 和模型`,
-      isHint: true,
-    },
-  ]);
+export function Chat({ initialMessages, conversationId: initialConvId, onMessagesChange, onVisualization, onToggleSettings }: ChatProps) {
+  const [messages, setMessages] = useState<ChatMessage[]>(initialMessages);
 
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
-  const [conversationId, setConversationId] = useState<string | undefined>();
+  const [conversationId, setConversationId] = useState<string | undefined>(initialConvId);
 
   // ── 多模型 & 输入预处理状态 ─────────────────────────────────
   const [showSettings, setShowSettings] = useState(false);
@@ -67,6 +54,13 @@ export function Chat({ onVisualization, onToggleSettings }: ChatProps) {
   const getModelsConfig = useCallback((): ModelConfigMap => {
     return getSettings().modelConfigMap;
   }, []);
+
+  // Sync messages to parent
+  useEffect(() => {
+    // Skip sync for the initial welcome-only state
+    if (messages.length <= 1 && messages[0]?.id === 'welcome') return;
+    onMessagesChange(messages);
+  }, [messages, onMessagesChange]);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
